@@ -38,11 +38,20 @@ public class MainActivity extends Activity {
         setContentView(scroll);
         TextView title=text("油门拉满",29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL)); page.addView(title);
         label(page,"FULL THROTTLE  /  电池放电工具"); gap(page,28);
-        LinearLayout metrics=new LinearLayout(this);
-        LinearLayout batteryBox=column(), powerBox=column();
-        label(batteryBox,"剩余电量 · 估算"); batteryText=text("--.--%",36,INK); batteryText.setSingleLine(true); batteryText.setMinHeight(dp(54)); batteryText.setAutoSizeTextTypeUniformWithConfiguration(18,36,1,android.util.TypedValue.COMPLEX_UNIT_SP); batteryText.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD)); batteryBox.addView(batteryText); batteryDetails=label(batteryBox,"系统 --% · 采样中"); batteryDetails.setTextSize(11);
-        powerLabel=label(powerBox,"当前功耗 · 电池侧"); wattsText=text("-- W",34,BLUE); wattsText.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD)); powerBox.addView(wattsText);
-        metrics.addView(batteryBox,new LinearLayout.LayoutParams(0,-2,1)); metrics.addView(powerBox,new LinearLayout.LayoutParams(0,-2,1)); page.addView(metrics); powerDetails=text("",12,MUTED); page.addView(powerDetails); gap(page,12);
+        LinearLayout metrics=column(), metricLabels=new LinearLayout(this), metricValues=new LinearLayout(this);
+        TextView batteryLabel=text("剩余电量 · 估算",13,MUTED);
+        powerLabel=text("当前功耗 · 电池侧",13,MUTED);
+        for(TextView heading:new TextView[]{batteryLabel,powerLabel}) {
+            heading.setSingleLine(true); heading.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            metricLabels.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
+        }
+        batteryText=metricNumber("--.--%",INK); wattsText=metricNumber("-- W",BLUE);
+        metricValues.addView(batteryText,new LinearLayout.LayoutParams(0,dp(54),1));
+        metricValues.addView(wattsText,new LinearLayout.LayoutParams(0,dp(54),1));
+        metricValues.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->alignMetricNumbers());
+        metrics.addView(metricLabels); metrics.addView(metricValues);
+        batteryDetails=label(metrics,"系统 --% · 采样中"); batteryDetails.setTextSize(11);
+        page.addView(metrics); powerDetails=text("",12,MUTED); page.addView(powerDetails); gap(page,12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(224),dp(224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; page.addView(toggle,buttonParams);
         toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(36)); page.addView(state);
@@ -56,6 +65,29 @@ public class MainActivity extends Activity {
         Button settingsButton=new Button(this); settingsButton.setText("设置"); settingsButton.setTextColor(BLUE); settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); page.addView(settingsRow); gap(page,14);
         heat=text("",13,MUTED); page.addView(heat); gap(page,6);
         TextView note=text("开启时本页保持最亮、常亮。切至后台后 CPU / GPU 持续运行，可从通知停止。频率与温控由系统及手机硬件管理。",12,MUTED); note.setLineSpacing(dp(3),1); page.addView(note);
+    }
+    private TextView metricNumber(String value,int color) {
+        TextView view=text(value,36,color);
+        view.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD));
+        view.setSingleLine(true); view.setIncludeFontPadding(false);
+        view.setGravity(Gravity.CENTER_VERTICAL); view.setPadding(0,0,dp(8),0);
+        return view;
+    }
+    private void alignMetricNumbers() {
+        int batteryWidth=batteryText.getWidth()-batteryText.getPaddingRight();
+        int powerWidth=wattsText.getWidth()-wattsText.getPaddingRight();
+        if(batteryWidth<=0 || powerWidth<=0) return;
+        float maximum=android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP,36,getResources().getDisplayMetrics());
+        Paint measure=new Paint(batteryText.getPaint()); measure.setTextSize(maximum);
+        // Reserve full-width values so live readings do not cause the font to resize.
+        float size=maximum*Math.min(1f,Math.min(batteryWidth/measure.measureText("100.00%"),powerWidth/measure.measureText("999.99 W")));
+        measure.setTextSize(size);
+        Paint.FontMetrics font=measure.getFontMetrics();
+        int height=Math.max(dp(54),(int)Math.ceil(font.bottom-font.top)+dp(12));
+        for(TextView view:new TextView[]{batteryText,wattsText}) {
+            if(Math.abs(view.getTextSize()-size)>0.1f) view.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,size);
+            if(view.getLayoutParams().height!=height) { ViewGroup.LayoutParams params=view.getLayoutParams(); params.height=height; view.setLayoutParams(params); }
+        }
     }
     private void requestStart() {
         if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) {
