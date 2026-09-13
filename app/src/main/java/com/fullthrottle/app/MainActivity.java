@@ -101,16 +101,16 @@ public class MainActivity extends Activity {
         }
         metricDetails.addView(batteryDetails,new LinearLayout.LayoutParams(0,-2,1));
         metricDetails.addView(powerBreakdown,new LinearLayout.LayoutParams(0,-2,1));
-        metrics.addView(metricDetails); if(glass) { metrics.setPadding(dp(16),dp(compact?4:14),dp(16),dp(compact?4:14)); metrics.setBackground(new GlassDrawable(night,false,dp(26))); } controls.addView(metrics); gap(controls,compact?4:12);
+        metrics.addView(metricDetails); if(glass) { metrics.setPadding(dp(16),dp(compact?4:14),dp(16),dp(compact?4:14)); metrics.setBackground(bg(night?0x4024354A:0x90FFFFFF,26)); } controls.addView(metrics); gap(controls,compact?4:12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(compact?128:wide?240:224),dp(compact?128:wide?240:224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; controls.addView(toggle,buttonParams);
         liquidTouch(toggle); toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(compact?28:36)); controls.addView(state);
         coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); if(!wide) controls.addView(coolingNotice);
         hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(compact?28:36)); controls.addView(hardware); gap(controls,wide?0:18);
-        LinearLayout estimate=column(); estimate.setPadding(dp(20),dp(16),dp(20),dp(16)); estimate.setBackground(glass?new GlassDrawable(night,false,dp(26)):bg(PALE,20));
+        LinearLayout estimate=column(); estimate.setPadding(dp(20),dp(16),dp(20),dp(16)); estimate.setBackground(glass?bg(night?0x4024354A:0x90FFFFFF,26):bg(PALE,20));
         label(estimate,"距停止电量预计还需"); eta=text("开启后测算",25,INK); estimate.addView(eta); gap(estimate,6);
         finishAt=text("预计停止时间  --:--",14,MUTED); estimate.addView(finishAt); information.addView(estimate); gap(information,14);
-        LinearLayout settingsRow=new LinearLayout(this); settingsRow.setGravity(Gravity.CENTER_VERTICAL); settingsRow.setPadding(dp(16),dp(12),dp(8),dp(12)); settingsRow.setBackground(glass?new GlassDrawable(night,false,dp(26)):bg(PALE,16));
+        LinearLayout settingsRow=new LinearLayout(this); settingsRow.setGravity(Gravity.CENTER_VERTICAL); settingsRow.setPadding(dp(16),dp(12),dp(8),dp(12)); settingsRow.setBackground(glass?bg(night?0x4024354A:0x90FFFFFF,26):bg(PALE,16));
         LinearLayout settingsLabels=column(); label(settingsLabels,"自动停止电量"); targetText=text("20%",23,INK); settingsLabels.addView(targetText); settingsRow.addView(settingsLabels,new LinearLayout.LayoutParams(0,-2,1));
         Button settingsButton=new Button(this); settingsButton.setText("设置"); settingsButton.setTextColor(BLUE);
         if(glass) {
@@ -139,7 +139,7 @@ public class MainActivity extends Activity {
             switch(event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     v.animate().cancel();
-                    v.animate().scaleX(1.035f).scaleY(.95f).setDuration(110)
+                    v.animate().scaleX(1.01f).scaleY(.98f).setDuration(110)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
                     break;
                 case MotionEvent.ACTION_UP:
@@ -194,7 +194,7 @@ public class MainActivity extends Activity {
             });
         }
         themePopup=new PopupWindow(panel,dp(208),ViewGroup.LayoutParams.WRAP_CONTENT,true);
-        GlassDrawable material=new GlassDrawable(night,false,dp(26)); material.setOwner(panel);
+        GlassDrawable material=new GlassDrawable(night,false,dp(26)); material.captureBehind(getWindow().getDecorView()); material.setOwner(panel);
         themePopup.setBackgroundDrawable(material); themePopup.setElevation(dp(12));
         themePopup.setOutsideTouchable(true); themePopup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
         themePopup.showAsDropDown(anchor,0,dp(8),Gravity.END);
@@ -316,7 +316,7 @@ public class MainActivity extends Activity {
             float scale=Math.min(getWidth(),getHeight())/(float)dp(224);
             c.save(); c.translate((getWidth()-dp(224)*scale)/2,(getHeight()-dp(224)*scale)/2); c.scale(scale,scale);
             float cx=dp(112),cy=dp(112),r=dp(96); boolean on=DrainService.active;
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(LINE); c.drawCircle(cx,cy,r,paint);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(glass?2:5)); paint.setColor(LINE); c.drawCircle(cx,cy,r,paint);
             paint.setColor(on?BLUE:MUTED); paint.setStrokeCap(Paint.Cap.ROUND);
             c.drawArc(cx-r,cy-r,cx+r,cy+r,-90,(float)(Double.isFinite(DrainService.estimatedLevel)?DrainService.estimatedLevel:Math.max(0,DrainService.level))*3.6f,false,paint);
             paint.setStyle(Paint.Style.FILL); paint.setColor(on?BLUE:PALE);
