@@ -1,0 +1,12 @@
+<resources>
+    <color name="app_background">#111A27</color>
+    <color name="app_surface">#1D2A3C</color>
+    <color name="app_text">#E5EDF8</color>
+    <color name="app_text_secondary">#A6B7CE</color>
+    <color name="app_accent">#8AB8FF</color>
+    <color name="app_on_accent">#10213A</color>
+    <color name="app_border">#334861</color>
+    <color name="app_warning">#FF9D90</color>
+    <color name="app_navigation_legacy">#111A27</color>
+    <bool name="light_system_bars">false</bool>
+</resources>

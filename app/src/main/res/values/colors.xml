@@ -1,1 +1,13 @@
-<resources><color name="icon_background">#245BB3</color></resources>
+<resources>
+    <color name="icon_background">#245BB3</color>
+    <color name="app_background">#FFFFFF</color>
+    <color name="app_surface">#EDF3FA</color>
+    <color name="app_text">#172C49</color>
+    <color name="app_text_secondary">#586A80</color>
+    <color name="app_accent">#245BB3</color>
+    <color name="app_on_accent">#FFFFFF</color>
+    <color name="app_border">#DBE5F0</color>
+    <color name="app_warning">#B43D30</color>
+    <color name="app_navigation_legacy">#172C49</color>
+    <bool name="light_system_bars">true</bool>
+</resources>

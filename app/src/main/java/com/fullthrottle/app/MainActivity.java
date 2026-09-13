@@ -15,7 +15,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class MainActivity extends Activity {
-    private static final int INK=0xff172c49, MUTED=0xff586a80, BLUE=0xff245bb3, PALE=0xffedf3fa, LINE=0xffdbe5f0, WHITE=0xffffffff, RED=0xffb43d30;
+    private int INK, MUTED, BLUE, PALE, LINE, BACKGROUND, RED, ON_ACCENT;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails, powerUnit;
     private PowerButton toggle;
@@ -30,7 +30,11 @@ public class MainActivity extends Activity {
     private TextView label(LinearLayout box,String title) { TextView t=text(title,13,MUTED); box.addView(t); return t; }
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(WHITE);
+        INK=getColor(R.color.app_text); MUTED=getColor(R.color.app_text_secondary);
+        BLUE=getColor(R.color.app_accent); PALE=getColor(R.color.app_surface);
+        LINE=getColor(R.color.app_border); BACKGROUND=getColor(R.color.app_background);
+        RED=getColor(R.color.app_warning); ON_ACCENT=getColor(R.color.app_on_accent);
+        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(BACKGROUND);
         LinearLayout page=column(); page.setPadding(dp(24),dp(18),dp(24),dp(24)); scroll.addView(page);
         if(Build.VERSION.SDK_INT>=30) scroll.setOnApplyWindowInsetsListener((v,insets)-> { android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()); v.setPadding(bars.left,bars.top,bars.right,bars.bottom); return insets; });
         // Older devices lay out within system bars automatically.
@@ -184,7 +188,7 @@ public class MainActivity extends Activity {
     @Override public void onPause() { handler.removeCallbacks(refresh); super.onPause(); }
     private class PowerButton extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-        PowerButton() { super(MainActivity.this); setClickable(true); setFocusable(true); setBackground(bg(WHITE,112)); }
+        PowerButton() { super(MainActivity.this); setClickable(true); setFocusable(true); setBackground(bg(BACKGROUND,112)); }
         @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) { super.onInitializeAccessibilityNodeInfo(info); info.setClassName("android.widget.Switch"); info.setCheckable(true); info.setChecked(DrainService.active); }
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c); float cx=getWidth()/2f,cy=getHeight()/2f,r=dp(96); boolean on=DrainService.active;
@@ -193,7 +197,7 @@ public class MainActivity extends Activity {
             c.drawArc(cx-r,cy-r,cx+r,cy+r,-90,(float)(Double.isFinite(DrainService.estimatedLevel)?DrainService.estimatedLevel:Math.max(0,DrainService.level))*3.6f,false,paint);
             paint.setStyle(Paint.Style.FILL); paint.setColor(on?BLUE:PALE); c.drawCircle(cx,cy,dp(82),paint);
             if(isPressed() || isFocused()) { paint.setColor(LINE); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(3)); c.drawCircle(cx,cy,dp(78),paint); }
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(on?WHITE:BLUE);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(on?ON_ACCENT:BLUE);
             float centerY=cy-dp(15), pr=dp(25); c.drawArc(cx-pr,centerY-pr,cx+pr,centerY+pr,-45,270,false,paint); c.drawLine(cx,centerY-dp(33),cx,centerY,paint);
             paint.setStyle(Paint.Style.FILL); paint.setTextAlign(Paint.Align.CENTER); paint.setTextSize(dp(18)); paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
             c.drawText(on?"停止耗电":"开启耗电",cx,cy+dp(48),paint);
