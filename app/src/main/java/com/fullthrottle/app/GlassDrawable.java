@@ -117,6 +117,7 @@ final class GlassDrawable extends Drawable {
             paint.setShader(null); paint.setStyle(Paint.Style.FILL);
         }
     }
+    @Override public void getOutline(Outline outline) { outline.setRoundRect(getBounds(),radius); }
     @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }
     @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
     @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }

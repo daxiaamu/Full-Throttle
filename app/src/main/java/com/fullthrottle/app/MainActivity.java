@@ -20,6 +20,7 @@ public class MainActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails, powerUnit;
     private PowerButton toggle;
+    private PopupWindow themePopup;
     private final Runnable refresh=new Runnable() { public void run() { update(); handler.postDelayed(this,1000); }};
     private int dp(float n) { return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
     private TextView text(String value,int size,int color) {
@@ -130,6 +131,7 @@ public class MainActivity extends Activity {
         TextView note=text("运行时前后台均保持屏幕常亮，本页使用最高亮度。后台持续运行并显示常驻通知，可从通知停止。手动锁屏及系统管控仍由手机决定。",12,MUTED); note.setLineSpacing(dp(3),1); information.addView(note);
     }
     private void showThemeMenu(View anchor) {
+        if(glass) { showGlassThemeMenu(anchor); return; }
         PopupMenu menu=new PopupMenu(this,anchor);
         menu.getMenu().add(1,1,0,"经典").setCheckable(true).setChecked(!glass);
         menu.getMenu().add(1,2,1,"液态玻璃").setCheckable(true).setChecked(glass);
@@ -143,6 +145,37 @@ public class MainActivity extends Activity {
             return true;
         });
         menu.show();
+    }
+    private void showGlassThemeMenu(View anchor) {
+        if(themePopup!=null) themePopup.dismiss();
+        LinearLayout panel=column(); panel.setPadding(dp(10),dp(10),dp(10),dp(10));
+        TextView heading=text("主题",12,MUTED); heading.setPadding(dp(14),0,0,0);
+        panel.addView(heading,new LinearLayout.LayoutParams(-1,dp(28)));
+        RadioGroup choices=new RadioGroup(this); panel.addView(choices);
+        String[] names={"经典","液态玻璃"};
+        for(int i=0;i<names.length;i++) {
+            final boolean selected=i==1;
+            RadioButton option=new RadioButton(this);
+            option.setId(View.generateViewId()); option.setText(names[i]); option.setTextSize(16);
+            option.setTextColor(INK); option.setButtonTintList(android.content.res.ColorStateList.valueOf(BLUE));
+            option.setPadding(dp(10),0,dp(12),0);
+            option.setBackground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(night?0x338AB8FF:0x22245BB3),null,bg(Color.WHITE,18)));
+            choices.addView(option,new RadioGroup.LayoutParams(-1,dp(52)));
+            option.setChecked(selected);
+            option.setOnClickListener(v-> {
+                themePopup.dismiss();
+                if(!selected) {
+                    getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("glassTheme",false).apply();
+                    recreate();
+                }
+            });
+        }
+        themePopup=new PopupWindow(panel,dp(208),ViewGroup.LayoutParams.WRAP_CONTENT,true);
+        GlassDrawable material=new GlassDrawable(night,false,dp(26)); material.setOwner(panel);
+        themePopup.setBackgroundDrawable(material); themePopup.setElevation(dp(12));
+        themePopup.setOutsideTouchable(true); themePopup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
+        themePopup.showAsDropDown(anchor,0,dp(8),Gravity.END);
     }
     private TextView metricNumber(String value,int color) {
         TextView view=text(value,36,color);
@@ -249,7 +282,7 @@ public class MainActivity extends Activity {
         toggle.setContentDescription(running?"停止耗电":"开启耗电"); toggle.invalidate();
     }
     @Override public void onResume() { super.onResume(); handler.post(refresh); }
-    @Override public void onPause() { handler.removeCallbacks(refresh); super.onPause(); }
+    @Override public void onPause() { handler.removeCallbacks(refresh); if(themePopup!=null) themePopup.dismiss(); super.onPause(); }
     private class PowerButton extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final GlassDrawable lens=new GlassDrawable(night,false,dp(200));
