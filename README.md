@@ -1,4 +1,4 @@
-# 全速耗电 / Full Throttle
+# 油门拉满 / Full Throttle
 
 原生 Android 应用，Android 8.0 及以上，无网络权限，无第三方运行时依赖。
 

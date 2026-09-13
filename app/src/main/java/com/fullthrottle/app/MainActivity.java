@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
         // Older devices lay out within system bars automatically.
         if(Build.VERSION.SDK_INT<30) scroll.setOnApplyWindowInsetsListener(null);
         setContentView(scroll);
-        TextView title=text("全速耗电",29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL)); page.addView(title);
+        TextView title=text("油门拉满",29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL)); page.addView(title);
         label(page,"FULL THROTTLE  /  电池放电工具"); gap(page,28);
         LinearLayout metrics=new LinearLayout(this);
         LinearLayout batteryBox=column(), powerBox=column();
