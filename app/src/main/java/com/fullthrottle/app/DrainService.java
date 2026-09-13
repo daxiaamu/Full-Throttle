@@ -10,6 +10,8 @@ public class DrainService extends Service {
     static final String CHANNEL = "discharge";
     static boolean active;
     static int level = -1;
+    static double estimatedLevel = Double.NaN;
+    static final BatteryLevelEstimator levelEstimator = new BatteryLevelEstimator();
     static float temperature;
     static boolean plugged;
     static String message = "准备就绪", gpu = "GPU 待机";
@@ -27,15 +29,20 @@ public class DrainService extends Service {
         temperature=i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE,0)/10f;
         plugged=i.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)!=0;
     }
+    static void sampleBattery(Context context, Intent intent) {
+        readBattery(intent);
+        long charge = context.getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER);
+        estimatedLevel = levelEstimator.update(SystemClock.elapsedRealtime(), level, charge, plugged);
+    }
     private final BroadcastReceiver battery = new BroadcastReceiver() {
-        @Override public void onReceive(Context c, Intent i) { readBattery(i); if(active) check(); }
+        @Override public void onReceive(Context c, Intent i) { sampleBattery(c,i); if(active) check(); }
     };
     @Override public void onCreate() {
         super.onCreate();
         NotificationChannel channel=new NotificationChannel(CHANNEL,"耗电运行状态",NotificationManager.IMPORTANCE_LOW);
         channel.setDescription("显示剩余电量，并可立即停止耗电");
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        readBattery(registerReceiver(battery,new IntentFilter(Intent.ACTION_BATTERY_CHANGED))); registered=true;
+        sampleBattery(this,registerReceiver(battery,new IntentFilter(Intent.ACTION_BATTERY_CHANGED))); registered=true;
     }
     @Override public int onStartCommand(Intent intent,int flags,int startId) {
         if(intent==null || STOP.equals(intent.getAction())) { finish("已停止"); return START_NOT_STICKY; }
@@ -56,7 +63,7 @@ public class DrainService extends Service {
     }
     private final Runnable tick=new Runnable() { public void run() {
         if(!active) return;
-        readBattery(registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)));
+        sampleBattery(DrainService.this,registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)));
         check(); if(!active) return;
         long charge=getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER);
         remaining=estimator.update(SystemClock.elapsedRealtime(),level,charge,plugged,target(DrainService.this));

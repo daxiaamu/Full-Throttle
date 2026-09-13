@@ -17,7 +17,7 @@ import java.util.*;
 public class MainActivity extends Activity {
     private static final int INK=0xff172c49, MUTED=0xff586a80, BLUE=0xff245bb3, PALE=0xffedf3fa, LINE=0xffdbe5f0, WHITE=0xffffffff, RED=0xffb43d30;
     private final Handler handler=new Handler(Looper.getMainLooper());
-    private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice;
+    private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails;
     private PowerButton toggle;
     private final Runnable refresh=new Runnable() { public void run() { update(); handler.postDelayed(this,1000); }};
     private int dp(float n) { return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
         label(page,"FULL THROTTLE  /  电池放电工具"); gap(page,28);
         LinearLayout metrics=new LinearLayout(this);
         LinearLayout batteryBox=column(), powerBox=column();
-        label(batteryBox,"剩余电量"); batteryText=text("--%",42,INK); batteryText.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD)); batteryBox.addView(batteryText);
+        label(batteryBox,"剩余电量 · 估算"); batteryText=text("--.--%",36,INK); batteryText.setSingleLine(true); batteryText.setMinHeight(dp(54)); batteryText.setAutoSizeTextTypeUniformWithConfiguration(18,36,1,android.util.TypedValue.COMPLEX_UNIT_SP); batteryText.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD)); batteryBox.addView(batteryText); batteryDetails=label(batteryBox,"系统 --% · 采样中"); batteryDetails.setTextSize(11);
         powerLabel=label(powerBox,"当前功耗 · 电池侧"); wattsText=text("-- W",34,BLUE); wattsText.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD)); powerBox.addView(wattsText);
         metrics.addView(batteryBox,new LinearLayout.LayoutParams(0,-2,1)); metrics.addView(powerBox,new LinearLayout.LayoutParams(0,-2,1)); page.addView(metrics); powerDetails=text("",12,MUTED); page.addView(powerDetails); gap(page,12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(224),dp(224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; page.addView(toggle,buttonParams);
@@ -104,8 +104,9 @@ public class MainActivity extends Activity {
             }).show();
     }
     private void update() {
-        Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)); DrainService.readBattery(b);
-        batteryText.setText(DrainService.level<0?"--%":DrainService.level+"%");
+        Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)); DrainService.sampleBattery(this,b);
+        batteryText.setText(Double.isFinite(DrainService.estimatedLevel)?String.format(Locale.CHINA,"%.2f%%",DrainService.estimatedLevel):"--.--%");
+        batteryDetails.setText(DrainService.level<0?"系统电量不可用":String.format(Locale.CHINA,"系统 %d%% · %s",DrainService.level,DrainService.levelEstimator.source()));
         int microAmps=getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
         int millivolts=b==null?0:b.getIntExtra(BatteryManager.EXTRA_VOLTAGE,0);
         int mode=getSharedPreferences("settings",MODE_PRIVATE).getInt("currentUnit",BatteryPower.AUTO);
@@ -146,7 +147,7 @@ public class MainActivity extends Activity {
             super.onDraw(c); float cx=getWidth()/2f,cy=getHeight()/2f,r=dp(96); boolean on=DrainService.active;
             paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(LINE); c.drawCircle(cx,cy,r,paint);
             paint.setColor(on?BLUE:MUTED); paint.setStrokeCap(Paint.Cap.ROUND);
-            c.drawArc(cx-r,cy-r,cx+r,cy+r,-90,Math.max(0,DrainService.level)*3.6f,false,paint);
+            c.drawArc(cx-r,cy-r,cx+r,cy+r,-90,(float)(Double.isFinite(DrainService.estimatedLevel)?DrainService.estimatedLevel:Math.max(0,DrainService.level))*3.6f,false,paint);
             paint.setStyle(Paint.Style.FILL); paint.setColor(on?BLUE:PALE); c.drawCircle(cx,cy,dp(82),paint);
             if(isPressed() || isFocused()) { paint.setColor(LINE); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(3)); c.drawCircle(cx,cy,dp(78),paint); }
             paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(on?WHITE:BLUE);
