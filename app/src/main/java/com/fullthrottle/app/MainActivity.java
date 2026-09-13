@@ -245,7 +245,7 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         boolean running=DrainService.active;
         coolingNotice.setVisibility(running?View.VISIBLE:View.INVISIBLE);
         state.setText(DrainService.message); state.setTextColor(running?BLUE:INK);
-        hardware.setText(running?"CPU "+Runtime.getRuntime().availableProcessors()+" 线程  /  "+DrainService.gpu:"CPU / GPU 待机");
+        hardware.setText(running?"CPU "+Runtime.getRuntime().availableProcessors()+" 线程  /  "+DrainService.gpu+" / RAM 读写":"CPU / GPU / RAM 待机");
         targetText.setText(DrainService.target(this)+"%");
         long remaining=DrainService.remaining;
         eta.setText(!running?"开启后测算":DrainService.plugged?"接通电源，暂停预测":remaining<0?"正在采样…":DrainService.duration(remaining));

@@ -8,10 +8,11 @@ import java.util.function.Consumer;
 
 final class LoadEngine {
     private volatile boolean running;
+    private MemoryLoad memory;
     private final List<Thread> workers = new ArrayList<>();
     private volatile double sink;
     final int cores = Runtime.getRuntime().availableProcessors();
-    void start(Consumer<String> gpuStatus) {
+    void start(android.content.Context context,Consumer<String> gpuStatus) {
         running = true;
         for (int i = 0; i < cores; i++) {
             final int seed = i;
@@ -25,9 +26,11 @@ final class LoadEngine {
             });
         }
         launch("load-gpu", () -> render(gpuStatus));
+        memory=new MemoryLoad(context); launch("load-ram",memory);
     }
     private void launch(String name, Runnable task) { Thread t = new Thread(task, name); workers.add(t); t.start(); }
-    void stop() { running = false; for (Thread t : workers) t.interrupt(); workers.clear(); }
+    void trimMemory() { if(memory!=null) memory.trim(); }
+    void stop() { running = false; if(memory!=null) memory.stop(); for (Thread t : workers) t.interrupt(); workers.clear(); }
     private int shader(int kind, String source) {
         int shader = GLES20.glCreateShader(kind);
         GLES20.glShaderSource(shader, source); GLES20.glCompileShader(shader);

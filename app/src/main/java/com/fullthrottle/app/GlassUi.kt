@@ -94,7 +94,7 @@ class GlassUi(private val activity: MainActivity) {
             if(!running) "开启后测算" else if(plugged) "接通电源，暂停预测" else if(remaining < 0) "正在采样…" else DrainService.duration(remaining),
             if(running && !plugged && remaining >= 0) "预计停止于 " + SimpleDateFormat("MM月dd日 HH:mm", Locale.CHINA).format(Date(System.currentTimeMillis() + remaining))
             else if(running && !plugged) "根据实际掉电速度计算，通常需 1–3 分钟" else "预计停止时间  --:--",
-            if(running) "CPU " + Runtime.getRuntime().availableProcessors() + " 线程  /  " + DrainService.gpu else "CPU / GPU 待机",
+            if(running) "CPU " + Runtime.getRuntime().availableProcessors() + " 线程  /  " + DrainService.gpu + " / RAM 读写" else "CPU / GPU / RAM 待机",
             format("电池温度 %.1f°C  ·  %s", DrainService.temperature, if(plugged) "已连接电源" else "使用电池"),
             (if(DrainService.estimatedLevel.isFinite()) DrainService.estimatedLevel.toFloat() else DrainService.level.toFloat()).coerceIn(0f,100f),
             DrainService.target(activity))

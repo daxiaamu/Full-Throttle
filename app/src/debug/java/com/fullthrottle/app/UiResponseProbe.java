@@ -61,18 +61,21 @@ public final class UiResponseProbe extends Instrumentation {
             result.putLong("menu_visible_ms",SystemClock.elapsedRealtime()-time);
             result.putBoolean("menu_visible",true);
             SystemClock.sleep(250); click("液态玻璃"); waitMenuClosed(); SystemClock.sleep(100);
+            result.putLong("heap_before_bytes",Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory());
             time=SystemClock.elapsedRealtime(); click("开启耗电"); waitNode("停止耗电",3000);
             result.putLong("start_to_stop_control_ms",SystemClock.elapsedRealtime()-time);
             boolean[] active={false}; runOnMainSync(()->active[0]=DrainService.active);
             result.putBoolean("started",active[0]);
             // Keep real CPU/GPU load active briefly and verify menu remains operable.
-            SystemClock.sleep(1200);
+            SystemClock.sleep(1800);
+            result.putLong("heap_running_bytes",Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory());
             time=SystemClock.elapsedRealtime(); click("切换主题"); waitNode("经典",3000);
             result.putLong("loaded_menu_visible_ms",SystemClock.elapsedRealtime()-time);
             SystemClock.sleep(250); click("液态玻璃"); waitMenuClosed(); SystemClock.sleep(100);
             time=SystemClock.elapsedRealtime(); click("停止耗电");
             SystemClock.sleep(300); runOnMainSync(()->result.putBoolean("active_after_stop",DrainService.active)); waitNode("开启耗电",3000);
             result.putLong("stop_to_start_control_ms",SystemClock.elapsedRealtime()-time);
+            result.putLong("heap_stopped_bytes",Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory());
             click("耗电设置"); waitNode("保存",3000);
             AccessibilityNodeInfo slider=waitNode("停止电量，1% 至 100%",3000);
             Bundle progress=new Bundle(); progress.putFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE,20);

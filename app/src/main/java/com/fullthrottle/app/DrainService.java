@@ -63,7 +63,7 @@ public class DrainService extends Service {
             screenWakeLock=getSystemService(PowerManager.class).newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK,"FullThrottle:Screen");
             screenWakeLock.acquire();
             engine=new LoadEngine();
-            engine.start(value -> handler.post(() -> { if(active) gpu=value; }));
+            engine.start(this,value -> handler.post(() -> { if(active) gpu=value; }));
             if(stateListener!=null) stateListener.run();
             handler.post(tick);
         } catch(RuntimeException e) { finish("无法启动负载，请重试"); }
@@ -106,5 +106,12 @@ public class DrainService extends Service {
         wakeLock=null;
     }
     @Override public void onDestroy() { if(active) message="运行已结束"; release(); if(registered) unregisterReceiver(battery); if(stateListener!=null) stateListener.run(); super.onDestroy(); }
+    @Override public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if(engine!=null && level!=TRIM_MEMORY_UI_HIDDEN) engine.trimMemory();
+    }
+    @Override public void onLowMemory() {
+        super.onLowMemory(); if(engine!=null) engine.trimMemory();
+    }
     @Override public IBinder onBind(Intent intent) { return null; }
 }
