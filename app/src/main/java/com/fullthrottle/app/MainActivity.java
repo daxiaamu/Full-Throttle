@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
         getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless,ripple,true);
         menu.setForeground(getDrawable(ripple.resourceId));
         header.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(48)));
-        menu.setOnClickListener(this::showThemeMenu); page.addView(header);
+        liquidTouch(menu); menu.setOnClickListener(this::showThemeMenu); page.addView(header);
         if(!compact) label(page,"FULL THROTTLE  /  电池放电工具");
         gap(page,compact?8:wide?16:28);
         LinearLayout body=new LinearLayout(this), controls=column(), information=column();
@@ -103,7 +103,7 @@ public class MainActivity extends Activity {
         metricDetails.addView(powerBreakdown,new LinearLayout.LayoutParams(0,-2,1));
         metrics.addView(metricDetails); if(glass) { metrics.setPadding(dp(16),dp(compact?4:14),dp(16),dp(compact?4:14)); metrics.setBackground(new GlassDrawable(night,false,dp(26))); } controls.addView(metrics); gap(controls,compact?4:12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(compact?128:wide?240:224),dp(compact?128:wide?240:224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; controls.addView(toggle,buttonParams);
-        toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
+        liquidTouch(toggle); toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(compact?28:36)); controls.addView(state);
         coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); if(!wide) controls.addView(coolingNotice);
         hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(compact?28:36)); controls.addView(hardware); gap(controls,wide?0:18);
@@ -125,10 +125,30 @@ public class MainActivity extends Activity {
             settingsButton.setPadding(dp(20),0,dp(20),0);
             settingsButton.setStateListAnimator(null);
         }
-        settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); information.addView(settingsRow); gap(information,14);
+        liquidTouch(settingsButton); settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); information.addView(settingsRow); gap(information,14);
         if(wide) information.addView(coolingNotice);
         heat=text("",13,MUTED); information.addView(heat); gap(information,6);
         TextView note=text("运行时前后台均保持屏幕常亮，本页使用最高亮度。后台持续运行并显示常驻通知，可从通知停止。手动锁屏及系统管控仍由手机决定。",12,MUTED); note.setLineSpacing(dp(3),1); information.addView(note);
+    }
+    private void liquidTouch(View view) {
+        if(!glass) return;
+        view.setOnTouchListener((v,event)-> {
+            if(!android.animation.ValueAnimator.areAnimatorsEnabled()) return false;
+            switch(event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    v.animate().cancel();
+                    v.animate().scaleX(1.035f).scaleY(.95f).setDuration(110)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    v.animate().cancel();
+                    v.animate().scaleX(1).scaleY(1).setDuration(320)
+                        .setInterpolator(new android.view.animation.OvershootInterpolator(1.5f)).start();
+                    break;
+            }
+            return false;
+        });
     }
     private void showThemeMenu(View anchor) {
         if(glass) { showGlassThemeMenu(anchor); return; }

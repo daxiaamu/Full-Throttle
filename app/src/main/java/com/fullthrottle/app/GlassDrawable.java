@@ -71,7 +71,7 @@ final class GlassDrawable extends Drawable {
             for(int y=0;y<h;y++) for(int x=0;x<w;x++) {
                 float px=(x+.5f)*b.width()/w,py=(y+.5f)*b.height()/h;
                 float sx=px,sy=py;
-                float edge=0,normalX=0,normalY=0;
+                float edge=0,normalX=0,normalY=0,depth=100;
                 if(!backdrop) {
                     float qx=px-Math.max(r,Math.min(b.width()-r,px));
                     float qy=py-Math.max(r,Math.min(b.height()-r,py));
@@ -84,19 +84,31 @@ final class GlassDrawable extends Drawable {
                         else if(distance==b.width()-px) normalX=1;
                         else if(distance==py) normalY=-1; else normalY=1;
                     }
-                    float band=Math.max(8,r*.55f);
+                    depth=distance;
+                    float band=Math.max(10,Math.min(r*.42f,28));
                     edge=clamp(1-distance/band);
                     // Magnified interior, nonlinear inward displacement around the curved rim.
-                    float displacement=(float)Math.sin(edge*Math.PI*.85f)*band*.8f;
-                    sx=b.width()/2f+(px-b.width()/2f)*.97f-normalX*displacement;
-                    sy=b.height()/2f+(py-b.height()/2f)*.97f-normalY*displacement;
+                    float displacement=(float)Math.sin(edge*Math.PI*.92f)*band*1.9f;
+                    sx=b.width()/2f+(px-b.width()/2f)*.94f-normalX*displacement;
+                    sy=b.height()/2f+(py-b.height()/2f)*.94f-normalY*displacement;
                 }
                 int c=sampleScene(location[0]+b.left+sx,location[1]+b.top+sy);
                 if(!backdrop) {
-                    c=mix(c,night?0xFF1B2B40:Color.WHITE,night?.20f:.22f);
-                    float light=clamp((-normalX-normalY)*.7f)*edge*edge;
-                    c=mix(c,Color.WHITE,light*(night?.26f:.64f));
-                    c=mix(c,night?Color.BLACK:0xFF487C9F,clamp((normalX+normalY)*.6f)*edge*edge*.22f);
+                    // Almost clear interior; optical thickness is concentrated at the rim.
+                    c=mix(c,night?0xFF16263A:Color.WHITE,night?.07f:.045f);
+                    float dispersion=edge*edge*3f;
+                    int redSample=sampleScene(location[0]+b.left+sx+normalX*dispersion,
+                        location[1]+b.top+sy+normalY*dispersion);
+                    int blueSample=sampleScene(location[0]+b.left+sx-normalX*dispersion,
+                        location[1]+b.top+sy-normalY*dispersion);
+                    c=Color.rgb(Color.red(redSample),Color.green(c),Color.blue(blueSample));
+                    float facing=clamp((-normalX-normalY)*.7f);
+                    float specular=(float)Math.exp(-Math.pow((depth-2.8f)/2.1f,2));
+                    float innerShadow=(float)Math.exp(-Math.pow((depth-8f)/3.2f,2));
+                    float caustic=(float)Math.exp(-Math.pow((depth-15f)/4.2f,2));
+                    c=mix(c,night?0xFF020C1B:0xFF305577,innerShadow*.28f);
+                    c=mix(c,Color.WHITE,specular*(.38f+facing*.55f));
+                    c=mix(c,night?0xFFBAE8FF:Color.WHITE,caustic*(1-facing)*.40f);
                 }
                 pixels[y*w+x]=c;
             }
@@ -109,9 +121,9 @@ final class GlassDrawable extends Drawable {
         }
         canvas.drawBitmap(material,null,b,paint); canvas.restoreToCount(saved);
         if(!backdrop) {
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(2);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.4f);
             paint.setShader(new LinearGradient(b.left,b.top,b.right,b.bottom,
-                new int[]{highlight(night),0x18FFFFFF,0x99FFFFFF},null,Shader.TileMode.CLAMP));
+                new int[]{0xFFFFFFFF,0x08FFFFFF,0xDDEFFFFF},null,Shader.TileMode.CLAMP));
             RectF rim=new RectF(b); rim.inset(1,1);
             canvas.drawRoundRect(rim,radius,radius,paint);
             paint.setShader(null); paint.setStyle(Paint.Style.FILL);
