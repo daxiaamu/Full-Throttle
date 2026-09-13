@@ -1,0 +1,11 @@
+Third-party software used by the Liquid Glass theme
+
+Backdrop 2.0.1
+Project: https://github.com/Kyant0/AndroidLiquidGlass
+Author: Kyant
+License: Apache License, Version 2.0 (see Backdrop-LICENSE.txt).
+The application uses the published Backdrop dependency and its Compose graphics-layer,
+blur and lens APIs. Existing battery and load logic is independent of this library.
+
+AndroidX, Jetpack Compose, Kotlin and their transitive dependencies retain their
+respective upstream copyright and license notices.

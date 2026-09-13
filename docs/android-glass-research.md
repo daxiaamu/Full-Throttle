@@ -29,3 +29,14 @@
 1.0.17 先修复交互阻塞：CPU 材质与模糊移至单独低优先级线程；移除导致材质重建的按压缩放；服务状态及时回调。
 此版本尚未接入上述开源库，也不能宣称已经实现它们的 GPU 管线。
 下一步应先在独立控件验证 AGSL 方案，再替换现有材质，覆盖深浅色、旋转、弹窗、旧 API 回退以及满负载下菜单和停止操作。
+## 1.0.18：实际接入 Kyant Backdrop
+
+- 使用 https://github.com/Kyant0/AndroidLiquidGlass 的正式 Maven 依赖 io.github.kyant0:backdrop:2.0.1。
+- 液态玻璃主题由 GlassUi.kt 使用 Compose 构建；经典主题继续使用原生 View。
+- 背景使用 layerBackdrop 记录，控件使用 drawBackdrop、blur、lens；弹层采样完整内容图层，避免自身递归。
+- 删除旧 GlassDrawable 的 CPU 逐像素材质与位图模糊路径。
+- 使用库的 API 能力检测；旧 Android 上不支持的透镜效果会降级，完整折射要求 API 33+。
+- Apache-2.0 许可与项目归属随 APK 一同放入 assets。
+- 一加 8T / API 36 实测：短时 CPU/GPU 负载中菜单仍可打开，设置可保存，主题可互切，停止操作成功。
+- UiResponseProbe 改为通过可访问性查找控件并注入真实触摸，包含设置值恢复及 finally 停止服务。
+- 单次测试的菜单显示约 167 ms，负载中约 133 ms，开启到停止按钮约 182 ms；含测试框架和查询开销，不等同于绘制帧耗时或长期性能保证。

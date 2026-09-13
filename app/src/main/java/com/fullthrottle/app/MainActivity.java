@@ -14,14 +14,15 @@ import android.widget.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class MainActivity extends Activity {
+public class MainActivity extends androidx.activity.ComponentActivity {
+    private GlassUi glassUi;
     private boolean glass, night;
     private int INK, MUTED, BLUE, PALE, LINE, BACKGROUND, RED, ON_ACCENT;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails, powerUnit;
     private final Runnable refreshAfterAction=()->update();
     private PowerButton toggle;
-    private PopupWindow themePopup;
+
     private final Runnable refresh=new Runnable() { public void run() { update(); handler.postDelayed(this,1000); }};
     private int dp(float n) { return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
     private TextView text(String value,int size,int color) {
@@ -39,7 +40,8 @@ public class MainActivity extends Activity {
         BLUE=getColor(R.color.app_accent); PALE=getColor(R.color.app_surface);
         LINE=getColor(R.color.app_border); BACKGROUND=getColor(R.color.app_background);
         RED=getColor(R.color.app_warning); ON_ACCENT=getColor(R.color.app_on_accent);
-        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackground(glass?new GlassDrawable(night,true,dp(28)):bg(BACKGROUND,0));
+        if(glass) { glassUi=new GlassUi(this); setContentView(glassUi.getView()); return; }
+        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackground(bg(BACKGROUND,0));
         boolean wide=getResources().getConfiguration().screenWidthDp>=600;
         boolean compact=wide && getResources().getConfiguration().screenHeightDp<500;
         LinearLayout page=new LinearLayout(this) {
@@ -59,7 +61,7 @@ public class MainActivity extends Activity {
         TextView title=text("油门拉满",compact?22:29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
         header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         TextView menu=text("⋯",28,INK); menu.setGravity(Gravity.CENTER); menu.setContentDescription("切换主题");
-        menu.setBackground(glass?new GlassDrawable(night,false,dp(24)):bg(PALE,24));
+        menu.setBackground(bg(PALE,24));
         menu.setClickable(true); menu.setFocusable(true);
         GradientDrawable pressMask=new GradientDrawable();
         pressMask.setShape(GradientDrawable.OVAL); pressMask.setColor(Color.WHITE);
@@ -72,7 +74,7 @@ public class MainActivity extends Activity {
         });
         menu.setClipToOutline(true);
         header.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(48)));
-        liquidTouch(menu); menu.setOnClickListener(this::showThemeMenu); page.addView(header);
+        menu.setOnClickListener(this::showThemeMenu); page.addView(header);
         if(!compact) label(page,"FULL THROTTLE  /  电池放电工具");
         gap(page,compact?8:wide?16:28);
         LinearLayout body=new LinearLayout(this), controls=column(), information=column();
@@ -109,9 +111,9 @@ public class MainActivity extends Activity {
         }
         metricDetails.addView(batteryDetails,new LinearLayout.LayoutParams(0,-2,1));
         metricDetails.addView(powerBreakdown,new LinearLayout.LayoutParams(0,-2,1));
-        metrics.addView(metricDetails); if(glass) { metrics.setPadding(dp(16),dp(compact?4:14),dp(16),dp(compact?4:14)); metrics.setBackground(bg(night?0x4024354A:0x90FFFFFF,26)); } controls.addView(metrics); gap(controls,compact?4:12);
+        metrics.addView(metricDetails); controls.addView(metrics); gap(controls,compact?4:12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(compact?128:wide?240:224),dp(compact?128:wide?240:224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; controls.addView(toggle,buttonParams);
-        liquidTouch(toggle); toggle.setOnClickListener(v-> {
+        toggle.setOnClickListener(v-> {
             if(DrainService.active) {
                 state.setText("正在停止…");
                 stopService(new Intent(this,DrainService.class));
@@ -125,53 +127,19 @@ public class MainActivity extends Activity {
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(compact?28:36)); controls.addView(state);
         coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); if(!wide) controls.addView(coolingNotice);
         hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(compact?28:36)); controls.addView(hardware); gap(controls,wide?0:18);
-        LinearLayout estimate=column(); estimate.setPadding(dp(20),dp(16),dp(20),dp(16)); estimate.setBackground(glass?bg(night?0x4024354A:0x90FFFFFF,26):bg(PALE,20));
+        LinearLayout estimate=column(); estimate.setPadding(dp(20),dp(16),dp(20),dp(16)); estimate.setBackground(bg(PALE,20));
         label(estimate,"距停止电量预计还需"); eta=text("开启后测算",25,INK); estimate.addView(eta); gap(estimate,6);
         finishAt=text("预计停止时间  --:--",14,MUTED); estimate.addView(finishAt); information.addView(estimate); gap(information,14);
-        LinearLayout settingsRow=new LinearLayout(this); settingsRow.setGravity(Gravity.CENTER_VERTICAL); settingsRow.setPadding(dp(16),dp(12),dp(8),dp(12)); settingsRow.setBackground(glass?bg(night?0x4024354A:0x90FFFFFF,26):bg(PALE,16));
+        LinearLayout settingsRow=new LinearLayout(this); settingsRow.setGravity(Gravity.CENTER_VERTICAL); settingsRow.setPadding(dp(16),dp(12),dp(8),dp(12)); settingsRow.setBackground(bg(PALE,16));
         LinearLayout settingsLabels=column(); label(settingsLabels,"自动停止电量"); targetText=text("20%",23,INK); settingsLabels.addView(targetText); settingsRow.addView(settingsLabels,new LinearLayout.LayoutParams(0,-2,1));
         Button settingsButton=new Button(this); settingsButton.setText("设置"); settingsButton.setTextColor(BLUE);
-        if(glass) {
-            settingsButton.setBackgroundTintList(null);
-            GlassDrawable settingsGlass=new GlassDrawable(night,false,dp(24));
-            settingsButton.setBackground(new android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(night?0x338AB8FF:0x22245BB3),
-                settingsGlass,bg(Color.WHITE,24)));
-            settingsGlass.setOwner(settingsButton);
-            settingsButton.setMinWidth(dp(72)); settingsButton.setMinimumWidth(dp(72));
-            settingsButton.setMinHeight(dp(48)); settingsButton.setMinimumHeight(dp(48));
-            settingsButton.setPadding(dp(20),0,dp(20),0);
-            settingsButton.setStateListAnimator(null);
-        }
-        liquidTouch(settingsButton); settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); information.addView(settingsRow); gap(information,14);
+        settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); information.addView(settingsRow); gap(information,14);
         if(wide) information.addView(coolingNotice);
         heat=text("",13,MUTED); information.addView(heat); gap(information,6);
         TextView note=text("运行时前后台均保持屏幕常亮，本页使用最高亮度。后台持续运行并显示常驻通知，可从通知停止。手动锁屏及系统管控仍由手机决定。",12,MUTED); note.setLineSpacing(dp(3),1); information.addView(note);
     }
-    // Observe only: returning false preserves native click, cancellation and accessibility handling.
-    @android.annotation.SuppressLint("ClickableViewAccessibility")
-    private void liquidTouch(View view) {
-        if(!glass) return;
-        view.setOnTouchListener((v,event)-> {
-            if(!android.animation.ValueAnimator.areAnimatorsEnabled()) return false;
-            switch(event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    v.animate().cancel();
-                    v.animate().alpha(.78f).setDuration(60)
-                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-                    break;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    v.animate().cancel();
-                    v.animate().alpha(1).setDuration(120)
-                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-                    break;
-            }
-            return false;
-        });
-    }
     private void showThemeMenu(View anchor) {
-        if(glass) { showGlassThemeMenu(anchor); return; }
+
         PopupMenu menu=new PopupMenu(this,anchor);
         menu.getMenu().add(1,1,0,"经典").setCheckable(true).setChecked(!glass);
         menu.getMenu().add(1,2,1,"液态玻璃").setCheckable(true).setChecked(glass);
@@ -185,37 +153,6 @@ public class MainActivity extends Activity {
             return true;
         });
         menu.show();
-    }
-    private void showGlassThemeMenu(View anchor) {
-        if(themePopup!=null) themePopup.dismiss();
-        LinearLayout panel=column(); panel.setPadding(dp(10),dp(10),dp(10),dp(10));
-        TextView heading=text("主题",12,MUTED); heading.setPadding(dp(14),0,0,0);
-        panel.addView(heading,new LinearLayout.LayoutParams(-1,dp(28)));
-        RadioGroup choices=new RadioGroup(this); panel.addView(choices);
-        String[] names={"经典","液态玻璃"};
-        for(int i=0;i<names.length;i++) {
-            final boolean selected=i==1;
-            RadioButton option=new RadioButton(this);
-            option.setId(View.generateViewId()); option.setText(names[i]); option.setTextSize(16);
-            option.setTextColor(INK); option.setButtonTintList(android.content.res.ColorStateList.valueOf(BLUE));
-            option.setPadding(dp(10),0,dp(12),0);
-            option.setBackground(new android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(night?0x338AB8FF:0x22245BB3),null,bg(Color.WHITE,18)));
-            choices.addView(option,new RadioGroup.LayoutParams(-1,dp(52)));
-            option.setChecked(selected);
-            option.setOnClickListener(v-> {
-                themePopup.dismiss();
-                if(!selected) {
-                    getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("glassTheme",false).apply();
-                    recreate();
-                }
-            });
-        }
-        themePopup=new PopupWindow(panel,dp(208),ViewGroup.LayoutParams.WRAP_CONTENT,true);
-        GlassDrawable material=new GlassDrawable(night,false,dp(26)); material.captureBehind(getWindow().getDecorView()); material.setOwner(panel);
-        themePopup.setBackgroundDrawable(material); themePopup.setElevation(dp(12));
-        themePopup.setOutsideTouchable(true); themePopup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
-        themePopup.showAsDropDown(anchor,0,dp(8),Gravity.END);
     }
     private TextView metricNumber(String value,int color) {
         TextView view=text(value,36,color);
@@ -240,7 +177,7 @@ public class MainActivity extends Activity {
             if(view.getLayoutParams().height!=height) { ViewGroup.LayoutParams params=view.getLayoutParams(); params.height=height; view.setLayoutParams(params); }
         }
     }
-    private void requestStart() {
+    void requestStart() {
         if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},7); return;
         }
@@ -287,6 +224,7 @@ public class MainActivity extends Activity {
             }).show();
     }
     private void update() {
+        if(glassUi!=null) { glassUi.refresh(); applyScreenState(); return; }
         Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)); DrainService.sampleBattery(this,b);
         batteryText.setText(Double.isFinite(DrainService.estimatedLevel)?String.format(Locale.CHINA,"%.2f%%",DrainService.estimatedLevel):"--.--%");
         batteryDetails.setText(DrainService.level<0?"系统电量不可用":String.format(Locale.CHINA,"系统电量：%d%%",DrainService.level));
@@ -316,12 +254,16 @@ public class MainActivity extends Activity {
             finishAt.setText("预计停止于 "+new SimpleDateFormat("MM月dd日 HH:mm",Locale.CHINA).format(time));
         } else finishAt.setText(running && !DrainService.plugged?"根据实际掉电速度计算，通常需 1–3 分钟":"预计停止时间  --:--");
         heat.setText(String.format(Locale.CHINA,"电池温度 %.1f°C  ·  %s",DrainService.temperature,DrainService.plugged?"已连接电源":"使用电池"));
-        WindowManager.LayoutParams params=getWindow().getAttributes(); float brightness=running?1f:WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
-        if(params.screenBrightness!=brightness) { params.screenBrightness=brightness; getWindow().setAttributes(params); }
-        if(running) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        applyScreenState();
         toggle.setContentDescription(running?"停止耗电":"开启耗电"); toggle.invalidate();
     }
+    private void applyScreenState() {
+        WindowManager.LayoutParams params=getWindow().getAttributes(); float brightness=DrainService.active?1f:WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+        if(params.screenBrightness!=brightness) { params.screenBrightness=brightness; getWindow().setAttributes(params); }
+        if(DrainService.active) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
     private final Runnable loadState=()-> {
+        if(glassUi!=null) { update(); return; }
         state.setText(DrainService.message);
         toggle.setContentDescription(DrainService.active?"停止耗电":"开启耗电");
         toggle.invalidate();
@@ -333,25 +275,23 @@ public class MainActivity extends Activity {
         DrainService.stateListener=loadState;
         handler.post(refresh);
     }
-    @Override public void onPause() { if(DrainService.stateListener==loadState) DrainService.stateListener=null; handler.removeCallbacks(refresh); handler.removeCallbacks(refreshAfterAction); if(themePopup!=null) themePopup.dismiss(); super.onPause(); }
+    @Override public void onPause() { if(DrainService.stateListener==loadState) DrainService.stateListener=null; handler.removeCallbacks(refresh); handler.removeCallbacks(refreshAfterAction); super.onPause(); }
     private class PowerButton extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final GlassDrawable lens=new GlassDrawable(night,false,dp(200));
-        PowerButton() { super(MainActivity.this); setClickable(true); setFocusable(true); setBackground(glass?null:bg(BACKGROUND,112)); lens.setCallback(this); }
+        PowerButton() { super(MainActivity.this); setClickable(true); setFocusable(true); setBackground(bg(BACKGROUND,112)); }
         @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) { super.onInitializeAccessibilityNodeInfo(info); info.setClassName("android.widget.Switch"); info.setCheckable(true); info.setChecked(DrainService.active); }
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
-            if(glass) { int inset=Math.round(getWidth()*30f/224); lens.setBounds(inset,inset,getWidth()-inset,getHeight()-inset); lens.draw(c); }
             float scale=Math.min(getWidth(),getHeight())/(float)dp(224);
             c.save(); c.translate((getWidth()-dp(224)*scale)/2,(getHeight()-dp(224)*scale)/2); c.scale(scale,scale);
             float cx=dp(112),cy=dp(112),r=dp(96); boolean on=DrainService.active;
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(glass?2:5)); paint.setColor(LINE); c.drawCircle(cx,cy,r,paint);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(LINE); c.drawCircle(cx,cy,r,paint);
             paint.setColor(on?BLUE:MUTED); paint.setStrokeCap(Paint.Cap.ROUND);
             c.drawArc(cx-r,cy-r,cx+r,cy+r,-90,(float)(Double.isFinite(DrainService.estimatedLevel)?DrainService.estimatedLevel:Math.max(0,DrainService.level))*3.6f,false,paint);
             paint.setStyle(Paint.Style.FILL); paint.setColor(on?BLUE:PALE);
-            if(!glass) c.drawCircle(cx,cy,dp(82),paint);
+            c.drawCircle(cx,cy,dp(82),paint);
             if(isPressed() || isFocused()) { paint.setColor(LINE); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(3)); c.drawCircle(cx,cy,dp(78),paint); }
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(glass?INK:on?ON_ACCENT:BLUE);
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(on?ON_ACCENT:BLUE);
             float centerY=cy-dp(15), pr=dp(25); c.drawArc(cx-pr,centerY-pr,cx+pr,centerY+pr,-45,270,false,paint); c.drawLine(cx,centerY-dp(33),cx,centerY,paint);
             paint.setStyle(Paint.Style.FILL); paint.setTextAlign(Paint.Align.CENTER); paint.setTextSize(dp(18)); paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
             c.drawText(on?"停止耗电":"开启耗电",cx,cy+dp(48),paint);
