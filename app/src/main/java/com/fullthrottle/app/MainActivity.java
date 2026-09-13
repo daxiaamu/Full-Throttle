@@ -60,9 +60,16 @@ public class MainActivity extends Activity {
         TextView menu=text("⋯",28,INK); menu.setGravity(Gravity.CENTER); menu.setContentDescription("切换主题");
         menu.setBackground(glass?new GlassDrawable(night,false,dp(24)):bg(PALE,24));
         menu.setClickable(true); menu.setFocusable(true);
-        android.util.TypedValue ripple=new android.util.TypedValue();
-        getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless,ripple,true);
-        menu.setForeground(getDrawable(ripple.resourceId));
+        GradientDrawable pressMask=new GradientDrawable();
+        pressMask.setShape(GradientDrawable.OVAL); pressMask.setColor(Color.WHITE);
+        menu.setForeground(new android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(night?0x338AB8FF:0x22245BB3),null,pressMask));
+        menu.setOutlineProvider(new ViewOutlineProvider() {
+            @Override public void getOutline(View view,Outline outline) {
+                outline.setOval(0,0,view.getWidth(),view.getHeight());
+            }
+        });
+        menu.setClipToOutline(true);
         header.addView(menu,new LinearLayout.LayoutParams(dp(48),dp(48)));
         liquidTouch(menu); menu.setOnClickListener(this::showThemeMenu); page.addView(header);
         if(!compact) label(page,"FULL THROTTLE  /  电池放电工具");
