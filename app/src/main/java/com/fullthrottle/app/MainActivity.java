@@ -55,7 +55,7 @@ public class MainActivity extends Activity {
         LinearLayout settingsLabels=column(); label(settingsLabels,"自动停止电量"); targetText=text("20%",23,INK); settingsLabels.addView(targetText); settingsRow.addView(settingsLabels,new LinearLayout.LayoutParams(0,-2,1));
         Button settingsButton=new Button(this); settingsButton.setText("设置"); settingsButton.setTextColor(BLUE); settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); page.addView(settingsRow); gap(page,14);
         heat=text("",13,MUTED); page.addView(heat); gap(page,6);
-        TextView note=text("开启时本页保持最亮、常亮。切至后台后 CPU / GPU 持续运行，可从通知停止。频率由系统调度；电池达到 50°C 时自动停止。",12,MUTED); note.setLineSpacing(dp(3),1); page.addView(note);
+        TextView note=text("开启时本页保持最亮、常亮。切至后台后 CPU / GPU 持续运行，可从通知停止。频率与温控由系统及手机硬件管理。",12,MUTED); note.setLineSpacing(dp(3),1); page.addView(note);
     }
     private void requestStart() {
         if(Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) {

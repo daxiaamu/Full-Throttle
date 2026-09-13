@@ -44,7 +44,6 @@ public class DrainService extends Service {
         else startForeground(1,notification());
         if(level<0) { finish("无法读取电量"); return START_NOT_STICKY; }
         if(level<=target(this)) { finish("已达到停止电量"); return START_NOT_STICKY; }
-        if(temperature>=50) { finish("电池温度过高，已停止"); return START_NOT_STICKY; }
         active=true; message="正在全速耗电"; gpu="GPU 启动中"; estimator.reset(); remaining=-1;
         try {
             wakeLock=getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"FullThrottle:Discharge");
@@ -67,7 +66,6 @@ public class DrainService extends Service {
     private void check() {
         if(level<0) finish("无法读取电量，已停止");
         else if(level<=target(this)) finish("已达到 " + target(this) + "% · 自动停止");
-        else if(temperature>=50) finish("电池达到 50°C · 已停止");
     }
     private Notification notification() {
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
