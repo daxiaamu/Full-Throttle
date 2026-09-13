@@ -17,7 +17,7 @@ import java.util.*;
 public class MainActivity extends Activity {
     private static final int INK=0xff172c49, MUTED=0xff586a80, BLUE=0xff245bb3, PALE=0xffedf3fa, LINE=0xffdbe5f0, WHITE=0xffffffff, RED=0xffb43d30;
     private final Handler handler=new Handler(Looper.getMainLooper());
-    private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails;
+    private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails, powerUnit;
     private PowerButton toggle;
     private final Runnable refresh=new Runnable() { public void run() { update(); handler.postDelayed(this,1000); }};
     private int dp(float n) { return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
         TextView title=text("油门拉满",29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL)); page.addView(title);
         label(page,"FULL THROTTLE  /  电池放电工具"); gap(page,28);
         LinearLayout metrics=column(), metricLabels=new LinearLayout(this), metricValues=new LinearLayout(this);
-        TextView batteryLabel=text("剩余电量 · 估算",13,MUTED);
+        TextView batteryLabel=text("剩余电量（估算）",13,MUTED);
         powerLabel=text("当前功耗 · 电池侧",13,MUTED);
         for(TextView heading:new TextView[]{batteryLabel,powerLabel}) {
             heading.setSingleLine(true); heading.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -50,8 +50,18 @@ public class MainActivity extends Activity {
         metricValues.addView(wattsText,new LinearLayout.LayoutParams(0,dp(54),1));
         metricValues.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->alignMetricNumbers());
         metrics.addView(metricLabels); metrics.addView(metricValues);
-        batteryDetails=label(metrics,"系统 --% · 采样中"); batteryDetails.setTextSize(11);
-        page.addView(metrics); powerDetails=text("",12,MUTED); page.addView(powerDetails); gap(page,12);
+        LinearLayout metricDetails=new LinearLayout(this), powerBreakdown=column();
+        metricDetails.setBaselineAligned(false); metricDetails.setGravity(Gravity.TOP);
+        batteryDetails=text("系统电量：--%",11,MUTED); batteryDetails.setMinHeight(dp(20));
+        powerDetails=text("-- V × -- A",11,MUTED); powerUnit=text("电流单位：--",11,MUTED);
+        for(TextView detail:new TextView[]{powerDetails,powerUnit}) {
+            detail.setSingleLine(true); detail.setMinHeight(dp(20));
+            detail.setAutoSizeTextTypeUniformWithConfiguration(9,11,1,android.util.TypedValue.COMPLEX_UNIT_SP);
+            powerBreakdown.addView(detail,new LinearLayout.LayoutParams(-1,dp(20)));
+        }
+        metricDetails.addView(batteryDetails,new LinearLayout.LayoutParams(0,-2,1));
+        metricDetails.addView(powerBreakdown,new LinearLayout.LayoutParams(0,-2,1));
+        metrics.addView(metricDetails); page.addView(metrics); gap(page,12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(224),dp(224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; page.addView(toggle,buttonParams);
         toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(36)); page.addView(state);
@@ -138,20 +148,21 @@ public class MainActivity extends Activity {
     private void update() {
         Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)); DrainService.sampleBattery(this,b);
         batteryText.setText(Double.isFinite(DrainService.estimatedLevel)?String.format(Locale.CHINA,"%.2f%%",DrainService.estimatedLevel):"--.--%");
-        batteryDetails.setText(DrainService.level<0?"系统电量不可用":String.format(Locale.CHINA,"系统 %d%% · %s",DrainService.level,DrainService.levelEstimator.source()));
+        batteryDetails.setText(DrainService.level<0?"系统电量不可用":String.format(Locale.CHINA,"系统电量：%d%%",DrainService.level));
         int microAmps=getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
         int millivolts=b==null?0:b.getIntExtra(BatteryManager.EXTRA_VOLTAGE,0);
         int mode=getSharedPreferences("settings",MODE_PRIVATE).getInt("currentUnit",BatteryPower.AUTO);
         boolean milliamps=BatteryPower.usesMilliamps(mode,Build.MANUFACTURER,Build.MODEL);
         if(microAmps==Integer.MIN_VALUE || millivolts<=0) {
-            wattsText.setText("-- W"); powerLabel.setText("电流数据暂不可用"); powerDetails.setText("系统未提供有效的电流或电压");
+            wattsText.setText("-- W"); powerLabel.setText("电流数据暂不可用"); powerDetails.setText("-- V × -- A");
         } else {
             double watts=BatteryPower.watts(microAmps,millivolts,milliamps);
             wattsText.setText(String.format(Locale.CHINA,"%.2f W",watts));
             powerLabel.setText(DrainService.plugged?"电池净功率 · 已接电":"当前功耗 · 放电");
-            powerDetails.setText(String.format(Locale.CHINA,"%.3f V × %.3f A · 电流单位 %s%s",millivolts/1000.0,
-                BatteryPower.amps(microAmps,milliamps),milliamps?"mA":"µA",mode==BatteryPower.AUTO?"（自动）":"（手动）"));
+            powerDetails.setText(String.format(Locale.CHINA,"%.3f V × %.3f A",millivolts/1000.0,
+                BatteryPower.amps(microAmps,milliamps)));
         }
+        powerUnit.setText(String.format(Locale.CHINA,"电流单位：%s%s",milliamps?"mA":"µA",mode==BatteryPower.AUTO?"（自动）":"（手动）"));
         boolean running=DrainService.active;
         coolingNotice.setVisibility(running?View.VISIBLE:View.INVISIBLE);
         state.setText(DrainService.message); state.setTextColor(running?BLUE:INK);
