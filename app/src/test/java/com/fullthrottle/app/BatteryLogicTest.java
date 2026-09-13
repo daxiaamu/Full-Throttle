@@ -4,6 +4,25 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class BatteryLogicTest {
+    @Test public void onePlus8tMilliampsProducesWattsInsteadOfRoundingToZero() {
+        assertTrue(BatteryPower.usesMilliamps(BatteryPower.AUTO,"OnePlus","KB2000"));
+        assertEquals(2.5823, BatteryPower.watts(620,4165,true),0.000001);
+        assertEquals(2.5823, BatteryPower.watts(-620,4165,true),0.000001);
+    }
+    @Test public void explicitUnitOverridesDeviceProfile() {
+        assertFalse(BatteryPower.usesMilliamps(BatteryPower.MICROAMPS,"OnePlus","KB2000"));
+        assertTrue(BatteryPower.usesMilliamps(BatteryPower.MILLIAMPS,"Other","Other"));
+        assertEquals(2.5823,BatteryPower.watts(620000,4165,false),0.000001);
+    }
+    @Test public void otherDevicesKeepAndroidStandardUnits() {
+        assertFalse(BatteryPower.usesMilliamps(BatteryPower.AUTO,"Google","Pixel"));
+        assertFalse(BatteryPower.usesMilliamps(BatteryPower.AUTO,"OnePlus","Other"));
+        assertFalse(BatteryPower.usesMilliamps(BatteryPower.AUTO,"Other",null));
+    }
+    @Test public void missingAndZeroCurrentAreNotConfusedInMilliampMode() {
+        assertTrue(Double.isNaN(BatteryPower.watts(Integer.MIN_VALUE,4165,true)));
+        assertEquals(0.0,BatteryPower.watts(0,4165,true),0.0);
+    }
     @Test public void wattsConvertsBothUnitsWithoutIntegerOverflow() {
         assertEquals(8.0, BatteryPower.watts(-2_000_000,4000),0.0001);
         assertEquals(8.0, BatteryPower.watts(2_000_000,4000),0.0001);
