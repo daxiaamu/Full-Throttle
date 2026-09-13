@@ -17,7 +17,7 @@ import java.util.*;
 public class MainActivity extends Activity {
     private static final int INK=0xff172c49, MUTED=0xff586a80, BLUE=0xff245bb3, PALE=0xffedf3fa, LINE=0xffdbe5f0, WHITE=0xffffffff, RED=0xffb43d30;
     private final Handler handler=new Handler(Looper.getMainLooper());
-    private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails;
+    private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice;
     private PowerButton toggle;
     private final Runnable refresh=new Runnable() { public void run() { update(); handler.postDelayed(this,1000); }};
     private int dp(float n) { return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
@@ -46,6 +46,7 @@ public class MainActivity extends Activity {
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(224),dp(224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; page.addView(toggle,buttonParams);
         toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(36)); page.addView(state);
+        coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); page.addView(coolingNotice);
         hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(36)); page.addView(hardware); gap(page,18);
         LinearLayout estimate=column(); estimate.setPadding(dp(20),dp(16),dp(20),dp(16)); estimate.setBackground(bg(PALE,20));
         label(estimate,"距停止电量预计还需"); eta=text("开启后测算",25,INK); estimate.addView(eta); gap(estimate,6);
@@ -119,6 +120,7 @@ public class MainActivity extends Activity {
                 BatteryPower.amps(microAmps,milliamps),milliamps?"mA":"µA",mode==BatteryPower.AUTO?"（自动）":"（手动）"));
         }
         boolean running=DrainService.active;
+        coolingNotice.setVisibility(running?View.VISIBLE:View.INVISIBLE);
         state.setText(DrainService.message); state.setTextColor(running?BLUE:INK);
         hardware.setText(running?"CPU "+Runtime.getRuntime().availableProcessors()+" 线程  /  "+DrainService.gpu:"CPU / GPU 待机");
         targetText.setText(DrainService.target(this)+"%");
