@@ -130,6 +130,8 @@ public class MainActivity extends Activity {
         heat=text("",13,MUTED); information.addView(heat); gap(information,6);
         TextView note=text("运行时前后台均保持屏幕常亮，本页使用最高亮度。后台持续运行并显示常驻通知，可从通知停止。手动锁屏及系统管控仍由手机决定。",12,MUTED); note.setLineSpacing(dp(3),1); information.addView(note);
     }
+    // Observe only: returning false preserves native click, cancellation and accessibility handling.
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private void liquidTouch(View view) {
         if(!glass) return;
         view.setOnTouchListener((v,event)-> {
