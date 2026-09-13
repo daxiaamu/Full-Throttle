@@ -35,13 +35,35 @@ public class MainActivity extends Activity {
         LINE=getColor(R.color.app_border); BACKGROUND=getColor(R.color.app_background);
         RED=getColor(R.color.app_warning); ON_ACCENT=getColor(R.color.app_on_accent);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(BACKGROUND);
-        LinearLayout page=column(); page.setPadding(dp(24),dp(18),dp(24),dp(24)); scroll.addView(page);
+        boolean wide=getResources().getConfiguration().screenWidthDp>=600;
+        boolean compact=wide && getResources().getConfiguration().screenHeightDp<500;
+        LinearLayout page=new LinearLayout(this) {
+            @Override protected void onMeasure(int widthSpec,int heightSpec) {
+                int extra=Math.max(0,(View.MeasureSpec.getSize(widthSpec)-dp(1120))/2);
+                int margin=dp(24)+extra;
+                setPadding(margin,dp(compact?8:18),margin,dp(24));
+                super.onMeasure(widthSpec,heightSpec);
+            }
+        };
+        page.setOrientation(LinearLayout.VERTICAL); scroll.addView(page);
         if(Build.VERSION.SDK_INT>=30) scroll.setOnApplyWindowInsetsListener((v,insets)-> { android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout()); v.setPadding(bars.left,bars.top,bars.right,bars.bottom); return insets; });
         // Older devices lay out within system bars automatically.
         if(Build.VERSION.SDK_INT<30) scroll.setOnApplyWindowInsetsListener(null);
         setContentView(scroll);
-        TextView title=text("油门拉满",29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL)); page.addView(title);
-        label(page,"FULL THROTTLE  /  电池放电工具"); gap(page,28);
+        TextView title=text("油门拉满",compact?22:29,INK); title.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL)); page.addView(title);
+        if(!compact) label(page,"FULL THROTTLE  /  电池放电工具");
+        gap(page,compact?8:wide?16:28);
+        LinearLayout body=new LinearLayout(this), controls=column(), information=column();
+        body.setOrientation(wide?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);
+        body.setBaselineAligned(false); body.setGravity(Gravity.TOP);
+        if(wide) {
+            LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,-2,1.1f); left.setMarginEnd(dp(28));
+            body.addView(controls,left); body.addView(information,new LinearLayout.LayoutParams(0,-2,1));
+        } else {
+            body.addView(controls,new LinearLayout.LayoutParams(-1,-2));
+            body.addView(information,new LinearLayout.LayoutParams(-1,-2));
+        }
+        page.addView(body,new LinearLayout.LayoutParams(-1,-2));
         LinearLayout metrics=column(), metricLabels=new LinearLayout(this), metricValues=new LinearLayout(this);
         TextView batteryLabel=text("剩余电量（估算）",13,MUTED);
         powerLabel=text("当前功耗 · 电池侧",13,MUTED);
@@ -65,20 +87,21 @@ public class MainActivity extends Activity {
         }
         metricDetails.addView(batteryDetails,new LinearLayout.LayoutParams(0,-2,1));
         metricDetails.addView(powerBreakdown,new LinearLayout.LayoutParams(0,-2,1));
-        metrics.addView(metricDetails); page.addView(metrics); gap(page,12);
-        toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(224),dp(224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; page.addView(toggle,buttonParams);
+        metrics.addView(metricDetails); controls.addView(metrics); gap(controls,compact?4:12);
+        toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(compact?128:wide?240:224),dp(compact?128:wide?240:224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; controls.addView(toggle,buttonParams);
         toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
-        state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(36)); page.addView(state);
-        coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); page.addView(coolingNotice);
-        hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(36)); page.addView(hardware); gap(page,18);
+        state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(compact?28:36)); controls.addView(state);
+        coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); if(!wide) controls.addView(coolingNotice);
+        hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(compact?28:36)); controls.addView(hardware); gap(controls,wide?0:18);
         LinearLayout estimate=column(); estimate.setPadding(dp(20),dp(16),dp(20),dp(16)); estimate.setBackground(bg(PALE,20));
         label(estimate,"距停止电量预计还需"); eta=text("开启后测算",25,INK); estimate.addView(eta); gap(estimate,6);
-        finishAt=text("预计停止时间  --:--",14,MUTED); estimate.addView(finishAt); page.addView(estimate); gap(page,14);
+        finishAt=text("预计停止时间  --:--",14,MUTED); estimate.addView(finishAt); information.addView(estimate); gap(information,14);
         LinearLayout settingsRow=new LinearLayout(this); settingsRow.setGravity(Gravity.CENTER_VERTICAL); settingsRow.setPadding(dp(16),dp(12),dp(8),dp(12)); settingsRow.setBackground(bg(PALE,16));
         LinearLayout settingsLabels=column(); label(settingsLabels,"自动停止电量"); targetText=text("20%",23,INK); settingsLabels.addView(targetText); settingsRow.addView(settingsLabels,new LinearLayout.LayoutParams(0,-2,1));
-        Button settingsButton=new Button(this); settingsButton.setText("设置"); settingsButton.setTextColor(BLUE); settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); page.addView(settingsRow); gap(page,14);
-        heat=text("",13,MUTED); page.addView(heat); gap(page,6);
-        TextView note=text("运行时前后台均保持屏幕常亮，本页使用最高亮度。后台持续运行并显示常驻通知，可从通知停止。手动锁屏及系统管控仍由手机决定。",12,MUTED); note.setLineSpacing(dp(3),1); page.addView(note);
+        Button settingsButton=new Button(this); settingsButton.setText("设置"); settingsButton.setTextColor(BLUE); settingsButton.setOnClickListener(v->settings()); settingsRow.addView(settingsButton); information.addView(settingsRow); gap(information,14);
+        if(wide) information.addView(coolingNotice);
+        heat=text("",13,MUTED); information.addView(heat); gap(information,6);
+        TextView note=text("运行时前后台均保持屏幕常亮，本页使用最高亮度。后台持续运行并显示常驻通知，可从通知停止。手动锁屏及系统管控仍由手机决定。",12,MUTED); note.setLineSpacing(dp(3),1); information.addView(note);
     }
     private TextView metricNumber(String value,int color) {
         TextView view=text(value,36,color);
@@ -191,7 +214,10 @@ public class MainActivity extends Activity {
         PowerButton() { super(MainActivity.this); setClickable(true); setFocusable(true); setBackground(bg(BACKGROUND,112)); }
         @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) { super.onInitializeAccessibilityNodeInfo(info); info.setClassName("android.widget.Switch"); info.setCheckable(true); info.setChecked(DrainService.active); }
         @Override protected void onDraw(Canvas c) {
-            super.onDraw(c); float cx=getWidth()/2f,cy=getHeight()/2f,r=dp(96); boolean on=DrainService.active;
+            super.onDraw(c);
+            float scale=Math.min(getWidth(),getHeight())/(float)dp(224);
+            c.save(); c.translate((getWidth()-dp(224)*scale)/2,(getHeight()-dp(224)*scale)/2); c.scale(scale,scale);
+            float cx=dp(112),cy=dp(112),r=dp(96); boolean on=DrainService.active;
             paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(5)); paint.setColor(LINE); c.drawCircle(cx,cy,r,paint);
             paint.setColor(on?BLUE:MUTED); paint.setStrokeCap(Paint.Cap.ROUND);
             c.drawArc(cx-r,cy-r,cx+r,cy+r,-90,(float)(Double.isFinite(DrainService.estimatedLevel)?DrainService.estimatedLevel:Math.max(0,DrainService.level))*3.6f,false,paint);
@@ -201,6 +227,7 @@ public class MainActivity extends Activity {
             float centerY=cy-dp(15), pr=dp(25); c.drawArc(cx-pr,centerY-pr,cx+pr,centerY+pr,-45,270,false,paint); c.drawLine(cx,centerY-dp(33),cx,centerY,paint);
             paint.setStyle(Paint.Style.FILL); paint.setTextAlign(Paint.Align.CENTER); paint.setTextSize(dp(18)); paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
             c.drawText(on?"停止耗电":"开启耗电",cx,cy+dp(48),paint);
+            c.restore();
         }
     }
 }
