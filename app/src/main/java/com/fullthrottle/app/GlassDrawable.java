@@ -6,20 +6,32 @@ import android.view.View;
 
 /** Cached optical material. The same scene is sampled by the backdrop and lens surfaces. */
 final class GlassDrawable extends Drawable {
+    private static final java.util.concurrent.ExecutorService RENDERER=
+        java.util.concurrent.Executors.newSingleThreadExecutor(task-> {
+            Thread thread=new Thread(()-> {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+                task.run();
+            },"glass-render");
+            thread.setDaemon(true); return thread;
+        });
+    private final android.os.Handler main=new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean rendering;
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
     private final boolean night, backdrop;
     private final float radius;
     private java.lang.ref.WeakReference<View> explicitOwner;
     void setOwner(View view) { explicitOwner=new java.lang.ref.WeakReference<>(view); }
-    private Bitmap capturedScene;
+    private volatile Bitmap capturedScene;
+    private int contentVersion;
     private int capturedX,capturedY,capturedWidth,capturedHeight;
     void captureBehind(View root) {
         int[] pos=new int[2]; root.getLocationOnScreen(pos);
         capturedX=pos[0]; capturedY=pos[1]; capturedWidth=root.getWidth(); capturedHeight=root.getHeight();
         if(capturedWidth<=0 || capturedHeight<=0) return;
-        int w=Math.max(1,capturedWidth/4),h=Math.max(1,capturedHeight/4);
+        int w=Math.max(1,capturedWidth/8),h=Math.max(1,capturedHeight/8);
         Bitmap image=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);
         Canvas canvas=new Canvas(image); canvas.scale(w/(float)capturedWidth,h/(float)capturedHeight); root.draw(canvas);
+        RENDERER.execute(()-> {
         int[] pixels=new int[w*h],temp=new int[w*h]; image.getPixels(pixels,0,w,0,0,w,h);
         // Two separable box passes soften actual text and surfaces below the floating menu.
         for(int pass=0;pass<2;pass++) {
@@ -34,7 +46,9 @@ final class GlassDrawable extends Drawable {
                 pixels[y*w+x]=Color.rgb(red/9,green/9,blue/9);
             }
         }
-        image.setPixels(pixels,0,w,0,0,w,h); capturedScene=image; cacheKey=""; material=null;
+        image.setPixels(pixels,0,w,0,0,w,h);
+        main.post(()-> { capturedScene=image; contentVersion++; cacheKey=""; invalidateSelf(); });
+        });
     }
     private Bitmap material;
     private static int[] scenePixels;
@@ -91,9 +105,44 @@ final class GlassDrawable extends Drawable {
         if(owner!=null) owner.getLocationOnScreen(location);
         float viewportW=owner==null?b.width():owner.getResources().getDisplayMetrics().widthPixels;
         float viewportH=owner==null?b.height():owner.getResources().getDisplayMetrics().heightPixels;
-        String key=b.toString()+":"+location[0]+":"+location[1]+":"+viewportW+":"+viewportH;
-        if(material==null || !cacheKey.equals(key)) {
-            cacheKey=key; prepareScene(viewportW,viewportH);
+        String key=b.toString()+":"+location[0]+":"+location[1]+":"+viewportW+":"+viewportH+":"+contentVersion;
+        if(!cacheKey.equals(key) && !rendering) {
+            rendering=true;
+            Rect renderBounds=new Rect(b);
+            RENDERER.execute(()-> {
+                Bitmap rendered=null;
+                try { rendered=renderMaterial(renderBounds,location,viewportW,viewportH); }
+                finally {
+                    Bitmap result=rendered;
+                    main.post(()-> {
+                        rendering=false;
+                        if(result!=null) { material=result; cacheKey=key; }
+                        invalidateSelf();
+                    });
+                }
+            });
+        }
+        int saved=canvas.save();
+        if(!backdrop) {
+            Path clip=new Path(); clip.addRoundRect(new RectF(b),radius,radius,Path.Direction.CW); canvas.clipPath(clip);
+        }
+                if(material!=null) canvas.drawBitmap(material,null,b,paint);
+        else {
+            paint.setColor(night?0xFF18283B:0xFFE0EAF3);
+            canvas.drawRect(b,paint);
+        }
+        canvas.restoreToCount(saved);
+        if(!backdrop) {
+            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.4f);
+            paint.setShader(new LinearGradient(b.left,b.top,b.right,b.bottom,
+                new int[]{0xBFFFFFFF,0x08FFFFFF,0x40FFFFFF},null,Shader.TileMode.CLAMP));
+            RectF rim=new RectF(b); rim.inset(1,1);
+            canvas.drawRoundRect(rim,radius,radius,paint);
+            paint.setShader(null); paint.setStyle(Paint.Style.FILL);
+        }
+    }
+    private Bitmap renderMaterial(Rect b,int[] location,float viewportW,float viewportH) {
+        prepareScene(viewportW,viewportH);
             // Half resolution is sufficient for the blurred background, sharp edges are vector drawn.
             int w=Math.max(1,b.width()/2),h=Math.max(1,b.height()/2);
             int[] pixels=new int[w*h];
@@ -143,21 +192,7 @@ final class GlassDrawable extends Drawable {
                 pixels[y*w+x]=c;
             }
             Bitmap next=Bitmap.createBitmap(pixels,w,h,Bitmap.Config.ARGB_8888);
-            material=next;
-        }
-        int saved=canvas.save();
-        if(!backdrop) {
-            Path clip=new Path(); clip.addRoundRect(new RectF(b),radius,radius,Path.Direction.CW); canvas.clipPath(clip);
-        }
-        canvas.drawBitmap(material,null,b,paint); canvas.restoreToCount(saved);
-        if(!backdrop) {
-            paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.4f);
-            paint.setShader(new LinearGradient(b.left,b.top,b.right,b.bottom,
-                new int[]{0xBFFFFFFF,0x08FFFFFF,0x40FFFFFF},null,Shader.TileMode.CLAMP));
-            RectF rim=new RectF(b); rim.inset(1,1);
-            canvas.drawRoundRect(rim,radius,radius,paint);
-            paint.setShader(null); paint.setStyle(Paint.Style.FILL);
-        }
+        return next;
     }
     @Override public void getOutline(Outline outline) { outline.setRoundRect(getBounds(),radius); }
     @Override public void setAlpha(int alpha) { paint.setAlpha(alpha); invalidateSelf(); }

@@ -6,6 +6,8 @@ import android.content.pm.ServiceInfo;
 import android.os.*;
 
 public class DrainService extends Service {
+    // Activity subscribes only while resumed; all callbacks run on the main thread.
+    static Runnable stateListener;
     static final String STOP = "com.fullthrottle.app.STOP";
     static final String CHANNEL = "discharge";
     static boolean active;
@@ -62,6 +64,7 @@ public class DrainService extends Service {
             screenWakeLock.acquire();
             engine=new LoadEngine();
             engine.start(value -> handler.post(() -> { if(active) gpu=value; }));
+            if(stateListener!=null) stateListener.run();
             handler.post(tick);
         } catch(RuntimeException e) { finish("无法启动负载，请重试"); }
         return START_NOT_STICKY;
@@ -102,6 +105,6 @@ public class DrainService extends Service {
         if(wakeLock!=null && wakeLock.isHeld()) wakeLock.release();
         wakeLock=null;
     }
-    @Override public void onDestroy() { if(active) message="运行已结束"; release(); if(registered) unregisterReceiver(battery); super.onDestroy(); }
+    @Override public void onDestroy() { if(active) message="运行已结束"; release(); if(registered) unregisterReceiver(battery); if(stateListener!=null) stateListener.run(); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
 }

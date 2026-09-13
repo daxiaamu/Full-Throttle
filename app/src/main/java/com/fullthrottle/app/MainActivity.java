@@ -19,6 +19,7 @@ public class MainActivity extends Activity {
     private int INK, MUTED, BLUE, PALE, LINE, BACKGROUND, RED, ON_ACCENT;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private TextView batteryText, wattsText, powerLabel, state, eta, finishAt, targetText, hardware, heat, powerDetails, coolingNotice, batteryDetails, powerUnit;
+    private final Runnable refreshAfterAction=()->update();
     private PowerButton toggle;
     private PopupWindow themePopup;
     private final Runnable refresh=new Runnable() { public void run() { update(); handler.postDelayed(this,1000); }};
@@ -110,7 +111,17 @@ public class MainActivity extends Activity {
         metricDetails.addView(powerBreakdown,new LinearLayout.LayoutParams(0,-2,1));
         metrics.addView(metricDetails); if(glass) { metrics.setPadding(dp(16),dp(compact?4:14),dp(16),dp(compact?4:14)); metrics.setBackground(bg(night?0x4024354A:0x90FFFFFF,26)); } controls.addView(metrics); gap(controls,compact?4:12);
         toggle=new PowerButton(); LinearLayout.LayoutParams buttonParams=new LinearLayout.LayoutParams(dp(compact?128:wide?240:224),dp(compact?128:wide?240:224)); buttonParams.gravity=Gravity.CENTER_HORIZONTAL; controls.addView(toggle,buttonParams);
-        liquidTouch(toggle); toggle.setOnClickListener(v->{ if(DrainService.active) stopService(new Intent(this,DrainService.class)); else requestStart(); update(); });
+        liquidTouch(toggle); toggle.setOnClickListener(v-> {
+            if(DrainService.active) {
+                state.setText("正在停止…");
+                stopService(new Intent(this,DrainService.class));
+            } else {
+                state.setText("正在启动…");
+                requestStart();
+            }
+            // Refresh after the service has processed the request; do not sample battery in the click.
+            handler.postDelayed(refreshAfterAction,80);
+        });
         state=text("准备就绪",16,INK); state.setGravity(Gravity.CENTER); state.setMinHeight(dp(compact?28:36)); controls.addView(state);
         coolingNotice=text("手机会发热发烫，请注意通风散热",14,RED); coolingNotice.setGravity(Gravity.CENTER); coolingNotice.setMinLines(2); coolingNotice.setVisibility(View.INVISIBLE); if(!wide) controls.addView(coolingNotice);
         hardware=text("",12,MUTED); hardware.setGravity(Gravity.CENTER); hardware.setMinHeight(dp(compact?28:36)); controls.addView(hardware); gap(controls,wide?0:18);
@@ -146,14 +157,14 @@ public class MainActivity extends Activity {
             switch(event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                     v.animate().cancel();
-                    v.animate().scaleX(1.01f).scaleY(.98f).setDuration(110)
+                    v.animate().alpha(.78f).setDuration(60)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     v.animate().cancel();
-                    v.animate().scaleX(1).scaleY(1).setDuration(320)
-                        .setInterpolator(new android.view.animation.OvershootInterpolator(1.5f)).start();
+                    v.animate().alpha(1).setDuration(120)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
                     break;
             }
             return false;
@@ -310,8 +321,19 @@ public class MainActivity extends Activity {
         if(running) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         toggle.setContentDescription(running?"停止耗电":"开启耗电"); toggle.invalidate();
     }
-    @Override public void onResume() { super.onResume(); handler.post(refresh); }
-    @Override public void onPause() { handler.removeCallbacks(refresh); if(themePopup!=null) themePopup.dismiss(); super.onPause(); }
+    private final Runnable loadState=()-> {
+        state.setText(DrainService.message);
+        toggle.setContentDescription(DrainService.active?"停止耗电":"开启耗电");
+        toggle.invalidate();
+        handler.removeCallbacks(refreshAfterAction);
+        handler.post(refreshAfterAction);
+    };
+    @Override public void onResume() {
+        super.onResume();
+        DrainService.stateListener=loadState;
+        handler.post(refresh);
+    }
+    @Override public void onPause() { if(DrainService.stateListener==loadState) DrainService.stateListener=null; handler.removeCallbacks(refresh); handler.removeCallbacks(refreshAfterAction); if(themePopup!=null) themePopup.dismiss(); super.onPause(); }
     private class PowerButton extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         private final GlassDrawable lens=new GlassDrawable(night,false,dp(200));
