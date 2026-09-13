@@ -19,7 +19,7 @@ public class DrainService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final DischargeEstimator estimator = new DischargeEstimator();
     private LoadEngine engine;
-    private PowerManager.WakeLock wakeLock;
+    private PowerManager.WakeLock wakeLock, screenWakeLock;
     private boolean registered;
     static int target(Context c) { return c.getSharedPreferences("settings",MODE_PRIVATE).getInt("target",20); }
     static void readBattery(Intent i) {
@@ -55,6 +55,11 @@ public class DrainService extends Service {
         try {
             wakeLock=getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"FullThrottle:Discharge");
             wakeLock.acquire();
+            // A window flag only works while the Activity is visible. The foreground service
+            // owns this screen lock so switching apps does not allow the inactivity timeout.
+            // Keep the separate partial lock so CPU work survives a manual power-button lock.
+            screenWakeLock=getSystemService(PowerManager.class).newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK,"FullThrottle:Screen");
+            screenWakeLock.acquire();
             engine=new LoadEngine();
             engine.start(value -> handler.post(() -> { if(active) gpu=value; }));
             handler.post(tick);
@@ -77,17 +82,25 @@ public class DrainService extends Service {
     private Notification notification() {
         PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,DrainService.class).setAction(STOP),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
-        return new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("油门拉满 · " + (level<0?"--":level) + "%")
+        Notification.Builder builder=new Notification.Builder(this,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("油门拉满 · " + (level<0?"--":level) + "%")
             .setContentText("耗至 " + target(this) + "% 停止 · " + (remaining<0?"正在测算":duration(remaining)))
-            .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(new Notification.Action.Builder(null,"停止耗电",stop).build()).build();
+            .setContentIntent(open).setOngoing(true).setAutoCancel(false).setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_SERVICE).setShowWhen(false)
+                        .addAction(new Notification.Action.Builder(null,"停止耗电",stop).build());
+        if(Build.VERSION.SDK_INT>=31) builder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        Notification notification=builder.build();
+        notification.flags |= Notification.FLAG_NO_CLEAR;
+        return notification;
     }
     static String duration(long ms) { long m=(ms+59999)/60000; return (m/60)+"小时"+(m%60)+"分钟"; }
     private void finish(String reason) { message=reason; release(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); }
     private void release() {
         active=false; remaining=-1; gpu="GPU 待机"; handler.removeCallbacksAndMessages(null);
         if(engine!=null) { engine.stop(); engine=null; }
+        if(screenWakeLock!=null && screenWakeLock.isHeld()) screenWakeLock.release();
+        screenWakeLock=null;
         if(wakeLock!=null && wakeLock.isHeld()) wakeLock.release();
+        wakeLock=null;
     }
     @Override public void onDestroy() { if(active) message="运行已结束"; release(); if(registered) unregisterReceiver(battery); super.onDestroy(); }
     @Override public IBinder onBind(Intent intent) { return null; }
