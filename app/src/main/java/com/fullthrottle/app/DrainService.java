@@ -34,6 +34,7 @@ public class DrainService extends Service {
     static void sampleBattery(Context context, Intent intent) {
         readBattery(intent);
         long charge = context.getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER);
+        BatteryTelemetry.sample(context,intent,charge);
         estimatedLevel = levelEstimator.update(SystemClock.elapsedRealtime(), level, charge, plugged);
     }
     private final BroadcastReceiver battery = new BroadcastReceiver() {

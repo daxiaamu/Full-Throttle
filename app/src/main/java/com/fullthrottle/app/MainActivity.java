@@ -207,19 +207,12 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         });
         TextView hint=text("剩余电量低于或等于此值时停止。设置立即生效。",14,MUTED); content.addView(hint);
         gap(content,16);
-        label(content,"电流单位（影响功耗显示）");
-        RadioGroup units=new RadioGroup(this); int[] unitIds={View.generateViewId(),View.generateViewId(),View.generateViewId()};
-        boolean autoMa=BatteryPower.usesMilliamps(BatteryPower.AUTO,Build.MANUFACTURER,Build.MODEL);
-        String[] unitNames={"自动（本机使用 "+(autoMa?"mA":"µA")+"）","µA · Android 标准","mA · 部分厂商系统"};
-        for(int i=0;i<unitNames.length;i++) { RadioButton option=new RadioButton(this); option.setId(unitIds[i]); option.setText(unitNames[i]); units.addView(option); }
-        units.check(unitIds[Math.max(0,Math.min(2,getSharedPreferences("settings",MODE_PRIVATE).getInt("currentUnit",BatteryPower.AUTO)))]);
-        content.addView(units);
-        TextView unitHint=text("一加 8T 默认按 mA 换算；其他 ROM 可手动切换。双电芯不自动乘 2。",12,MUTED); content.addView(unitHint);
+        content.addView(text("电压和电流单位自动识别，无需手动校准。",12,MUTED));
         ScrollView settingsScroll=new ScrollView(this); settingsScroll.addView(content);
         new AlertDialog.Builder(this).setTitle("耗电设置").setView(settingsScroll).setNegativeButton("取消",null)
             .setPositiveButton("保存",(dialog,which)-> {
                 int target=slider.getProgress()+1;
-                getSharedPreferences("settings",MODE_PRIVATE).edit().putInt("target",target).putInt("currentUnit",units.indexOfChild(units.findViewById(units.getCheckedRadioButtonId()))).apply();
+                getSharedPreferences("settings",MODE_PRIVATE).edit().putInt("target",target).apply();
                 if(DrainService.active) startService(new Intent(this,DrainService.class)); update();
             }).show();
     }
@@ -228,20 +221,14 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         Intent b=registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED)); DrainService.sampleBattery(this,b);
         batteryText.setText(Double.isFinite(DrainService.estimatedLevel)?String.format(Locale.CHINA,"%.2f%%",DrainService.estimatedLevel):"--.--%");
         batteryDetails.setText(DrainService.level<0?"系统电量不可用":String.format(Locale.CHINA,"系统电量：%d%%",DrainService.level));
-        int microAmps=getSystemService(BatteryManager.class).getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
-        int millivolts=b==null?0:b.getIntExtra(BatteryManager.EXTRA_VOLTAGE,0);
-        int mode=getSharedPreferences("settings",MODE_PRIVATE).getInt("currentUnit",BatteryPower.AUTO);
-        boolean milliamps=BatteryPower.usesMilliamps(mode,Build.MANUFACTURER,Build.MODEL);
-        if(microAmps==Integer.MIN_VALUE || millivolts<=0) {
-            wattsText.setText("-- W"); powerLabel.setText("电流数据暂不可用"); powerDetails.setText("-- V × -- A");
+        if(!BatteryTelemetry.valid()) {
+            wattsText.setText("-- W"); powerLabel.setText("电池数据暂不可用"); powerDetails.setText("-- V × -- A");
         } else {
-            double watts=BatteryPower.watts(microAmps,millivolts,milliamps);
-            wattsText.setText(String.format(Locale.CHINA,"%.2f W",watts));
+            wattsText.setText(String.format(Locale.CHINA,"%.2f W",BatteryTelemetry.watts));
             powerLabel.setText(DrainService.plugged?"电池净功率 · 已接电":"当前功耗 · 放电");
-            powerDetails.setText(String.format(Locale.CHINA,"%.3f V × %.3f A",millivolts/1000.0,
-                BatteryPower.amps(microAmps,milliamps)));
+            powerDetails.setText(String.format(Locale.CHINA,"%.3f V × %.3f A",BatteryTelemetry.millivolts/1000.0,BatteryTelemetry.amps));
         }
-        powerUnit.setText(String.format(Locale.CHINA,"电流单位：%s%s",milliamps?"mA":"µA",mode==BatteryPower.AUTO?"（自动）":"（手动）"));
+        powerUnit.setText(BatteryTelemetry.unitLabel());
         boolean running=DrainService.active;
         coolingNotice.setVisibility(running?View.VISIBLE:View.INVISIBLE);
         state.setText(DrainService.message); state.setTextColor(running?BLUE:INK);

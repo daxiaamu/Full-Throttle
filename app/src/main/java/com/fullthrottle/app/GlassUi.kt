@@ -74,11 +74,7 @@ class GlassUi(private val activity: MainActivity) {
     private fun read(): Reading {
         val battery = activity.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         DrainService.sampleBattery(activity, battery)
-        val raw = activity.getSystemService(BatteryManager::class.java).getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-        val voltage = battery?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
-        val mode = preferences.getInt("currentUnit", BatteryPower.AUTO)
-        val ma = BatteryPower.usesMilliamps(mode, Build.MANUFACTURER, Build.MODEL)
-        val valid = raw != Int.MIN_VALUE && voltage > 0
+        val valid = BatteryTelemetry.valid()
         val running = DrainService.active
         val plugged = DrainService.plugged
         val remaining = DrainService.remaining
@@ -86,10 +82,10 @@ class GlassUi(private val activity: MainActivity) {
         return Reading(
             if(DrainService.estimatedLevel.isFinite()) format("%.2f%%", DrainService.estimatedLevel) else "--.--%",
             if(DrainService.level >= 0) "系统电量：" + DrainService.level + "%" else "系统电量不可用",
-            if(valid) format("%.2f W", BatteryPower.watts(raw, voltage, ma)) else "-- W",
-            if(!valid) "电流数据暂不可用" else if(plugged) "电池净功率 · 已接电" else "当前功耗 · 放电",
-            if(valid) format("%.3f V × %.3f A", voltage / 1000.0, BatteryPower.amps(raw, ma)) else "-- V × -- A",
-            "电流单位：" + (if(ma) "mA" else "µA") + (if(mode == BatteryPower.AUTO) "（自动）" else "（手动）"),
+            if(valid) format("%.2f W", BatteryTelemetry.watts) else "-- W",
+            if(!valid) "电池数据暂不可用" else if(plugged) "电池净功率 · 已接电" else "当前功耗 · 放电",
+            if(valid) format("%.3f V × %.3f A", BatteryTelemetry.millivolts / 1000.0, BatteryTelemetry.amps) else "-- V × -- A",
+            BatteryTelemetry.unitLabel(),
             running, DrainService.message,
             if(!running) "开启后测算" else if(plugged) "接通电源，暂停预测" else if(remaining < 0) "正在采样…" else DrainService.duration(remaining),
             if(running && !plugged && remaining >= 0) "预计停止于 " + SimpleDateFormat("MM月dd日 HH:mm", Locale.CHINA).format(Date(System.currentTimeMillis() + remaining))
@@ -267,7 +263,6 @@ class GlassUi(private val activity: MainActivity) {
     }
     @Composable private fun Settings(backdrop: Backdrop,dismiss: () -> Unit) {
         var target by remember{mutableIntStateOf(DrainService.target(activity))}
-        var unit by remember{mutableIntStateOf(preferences.getInt("currentUnit",BatteryPower.AUTO))}
         Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {
             Box(Modifier.matchParentSize().background(Color.Black.copy(alpha=.12f)).clickable(remember{MutableInteractionSource()},null,onClick=dismiss))
             Column(Modifier.safeDrawingPadding().padding(24.dp).widthIn(max=420.dp).fillMaxWidth()
@@ -285,16 +280,11 @@ class GlassUi(private val activity: MainActivity) {
                     })
                 }},update={it.progress=target-1},modifier=Modifier.fillMaxWidth().height(48.dp))
                 Text("剩余电量低于或等于此值时停止。",12,muted);Spacer(Modifier.height(16.dp))
-                Text("电流单位（影响功耗显示）",13,muted)
-                val autoMa=BatteryPower.usesMilliamps(BatteryPower.AUTO,Build.MANUFACTURER,Build.MODEL)
-                listOf("自动（本机使用 "+(if(autoMa) "mA" else "µA")+"）","µA · Android 标准","mA · 部分厂商系统").forEachIndexed{index,label->
-                    ThemeOption(label,index==unit){unit=index}
-                }
-                Text("一加 8T 默认按 mA 换算；双电芯不自动乘 2。",12,muted);Spacer(Modifier.height(18.dp))
+                Text("电压和电流单位自动识别，无需手动校准。",12,muted);Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
                     Text("取消",16,muted,Modifier.clip(RoundedCornerShape(20.dp)).clickable(onClick=dismiss).padding(14.dp))
                     Text("保存",16,accent,Modifier.clip(RoundedCornerShape(20.dp)).clickable{
-                        preferences.edit().putInt("target",target).putInt("currentUnit",unit).apply()
+                        preferences.edit().putInt("target",target).apply()
                         if(DrainService.active) activity.startService(Intent(activity,DrainService::class.java))
                         refresh();dismiss()
                     }.padding(14.dp),bold=true)

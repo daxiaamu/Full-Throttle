@@ -81,8 +81,8 @@ public final class UiResponseProbe extends Instrumentation {
             Bundle progress=new Bundle(); progress.putFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE,20);
             if(!slider.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.getId(),progress))
                 throw new IllegalStateException("Slider accessibility action failed");
-            click("mA · 部分厂商系统"); click("保存"); SystemClock.sleep(200);
-            result.putBoolean("settings_saved",prefs.getInt("target",0)==21 && prefs.getInt("currentUnit",-1)==2);
+             click("保存"); SystemClock.sleep(200);
+            result.putBoolean("settings_saved",prefs.getInt("target",0)==21);
             if(!result.getBoolean("settings_saved")) throw new IllegalStateException("Settings did not persist");
             click("切换主题"); waitNode("经典",3000); SystemClock.sleep(250); click("经典");
             SystemClock.sleep(500); waitNode("切换主题",3000);

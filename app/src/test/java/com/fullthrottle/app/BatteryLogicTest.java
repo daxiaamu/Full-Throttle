@@ -4,6 +4,20 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class BatteryLogicTest {
+    @Test public void truncatedVoltageUsesValidatedVendorMillivolts() {
+        assertEquals(3745, BatteryPower.voltageMillivolts(3,3745));
+        assertEquals(4165, BatteryPower.voltageMillivolts(4165,3745));
+        assertEquals(8200, BatteryPower.voltageMillivolts(8200,4100));
+        assertEquals(0, BatteryPower.voltageMillivolts(3,0));
+        assertEquals(0, BatteryPower.voltageMillivolts(3,3745000));
+        assertTrue(Double.isNaN(BatteryPower.watts(1689,3,true)));
+    }
+    @Test public void verifiedPlg110UsesMilliampsWithVoltageFallback() {
+        assertTrue(BatteryPower.usesMilliamps(BatteryPower.AUTO,"OPPO","PLG110"));
+        assertFalse(BatteryPower.usesMilliamps(BatteryPower.MICROAMPS,"OPPO","PLG110"));
+        assertFalse(BatteryPower.usesMilliamps(BatteryPower.AUTO,"OPPO","Other"));
+        assertEquals(6.325305,BatteryPower.watts(1689,BatteryPower.voltageMillivolts(3,3745),true),0.000001);
+    }
     @Test public void onePlus8tMilliampsProducesWattsInsteadOfRoundingToZero() {
         assertTrue(BatteryPower.usesMilliamps(BatteryPower.AUTO,"OnePlus","KB2000"));
         assertEquals(2.5823, BatteryPower.watts(620,4165,true),0.000001);
